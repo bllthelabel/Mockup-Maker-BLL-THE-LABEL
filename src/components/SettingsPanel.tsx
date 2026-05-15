@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
-import { PromptSettings, ModelType, Position, Environment, Mood, AspectRatio, Resolution, LibraryProduct, PrintTechnique } from '../types';
+import { PromptSettings, ModelType, Position, Environment, Mood, AspectRatio, Resolution, LibraryProduct, PrintTechnique, AIProvider } from '../types';
 import { COLORS, PRINT_TECHNIQUES } from '../lib/constants';
 import { cn } from '../lib/utils';
 
@@ -43,9 +43,27 @@ export default function SettingsPanel({ settings, onUpdate, library }: Props) {
 
   return (
     <div className="space-y-6" id="settings-panel">
-      <div className="flex items-center gap-2 mb-2">
-        <SlidersHorizontal className="text-[#D32416] w-5 h-5" />
-        <h3 className="font-semibold text-[#1A1A1A]">3. Instellingen</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="text-[#D32416] w-5 h-5" />
+          <h3 className="font-semibold text-[#1A1A1A]">3. Instellingen</h3>
+        </div>
+        <div className="flex bg-stone-100 p-1 rounded-lg">
+          {(['google', 'openai'] as AIProvider[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => update('provider', p)}
+              className={cn(
+                "px-3 py-1 text-[10px] uppercase tracking-widest font-bold rounded-md transition-all",
+                settings.provider === p 
+                  ? "bg-white text-[#D32416] shadow-sm" 
+                  : "text-stone-400 hover:text-stone-600"
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-stone-50/50 p-5 rounded-2xl border border-stone-100 space-y-4">

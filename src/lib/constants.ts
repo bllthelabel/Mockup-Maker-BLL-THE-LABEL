@@ -25,6 +25,12 @@ export const PHOTOGRAPHY_FORMATS: PhotographyFormat[] = [
     name: 'Vrijstaand Product',
     description: 'Strakke flat-lay productfotografie op een egale achtergrond. Focus volledig op het kledingstuk zelf.',
     basePrompt: 'Create a minimal flat lay product photograph. The garment is laid naturally on a soft textured surface (like linen or matte plaster) in warm neutral tones (beige, sand, cream). Allow natural folds and subtle imperfections for a relaxed, real feeling. Top-down (flat lay) composition with plenty of negative space. Soft natural sunlight (window light or golden hour) with gentle side shadows. 35mm film look, slight grain, no props, no studio background.'
+  },
+  {
+    id: 'ghost-mannequin',
+    name: 'Ghost Mannequin',
+    description: 'Onzichtbare paspop fotografie waarbij het kledingstuk zijn 3D-vorm behoudt zonder zichtbaar model of mannequin. Professionele productpresentatie met focus op pasvorm en silhouet.',
+    basePrompt: 'Create a ghost mannequin (invisible mannequin / hollow man) product photograph. The garment is worn on an invisible mannequin, retaining its full 3D shape, structure, and silhouette — as if worn by a person, but with no visible body, model, or mannequin. The inside collar, neckline, and sleeve openings should be slightly visible to emphasize the hollow effect. Place the garment centered on a clean, neutral background (white, off-white, or very light grey). Lighting is soft, even, and diffused — no harsh shadows, no gradients. The overall look is clean, premium, and e-commerce ready. Focus entirely on the fit, construction, and shape of the garment.'
   }
 ];
 
@@ -153,7 +159,8 @@ export const DEFAULT_SETTINGS: PromptSettings = {
   aspectRatio: '4:5',
   resolution: 'HD',
   color: 'white',
-  printTechnique: 'none'
+  printTechnique: 'none',
+  provider: 'google'
 };
 
 export const NEGATIVE_PROMPT = 'Do not change the product design. Do not change the logo. Do not change the print. Do not change the embroidery. Do not add extra text or labels. Do not add random graphics. No creative hallucinations. No deviations from reference images. Do not make the image look like a glossy commercial ad. No harsh studio lighting. No flash or artificial studio lighting. No forced posing. No busy background. No distorted hands. No deformed clothing. No incorrect text. No fake logos. No bright or saturated colors. No HDR or over-processed look.';
@@ -164,6 +171,7 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Basic T-shirt Creator',
     description: 'BLL Basic T-shirt Creator basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-15.13.13.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/basic-tshirt-creator.png',
     availableColors: [
       'white', 'natural-raw', 'vintage-white', 'off-white',
       'earthy-red', 'deep-plum', 'blue-grey', 'faded-olive', 'honey-paper',
@@ -186,10 +194,11 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized T-shirt Freestyler',
     description: 'BLL Oversized T-shirt Freestyler basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-15.48.06.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-tshirt-Freestyler.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'fraiche-peche', 'burgundy',
       'kaffa-coffee', 'worker-blue', 'mindful-blue', 'aloe', 'stargazer', 'glazed-green',
-      'misty-jade', 'khaki', 'day-fall', 'heritage-brown', 'mocha', 'desert-dust', 'simple-white', 'cream',
+      'misty-jade', 'khaki', 'day-fall', 'heritage-brown', 'mocha', 'desert-dust', 'cream',
       'heather-grey', 'cool-heather-grey', 'heather-haze', 'dark-heather-grey'
     ],
     technicalDetails: 'Stanley/Stella Freestyler (STTU788): Unisex ultra-heavy T-shirt, boxy oversized fit, 240 GSM. This is a heavy-duty garment with a structured, wide silhouette and dropped shoulders. The fabric is thick and stiff (dry handfeel), maintaining its boxy shape. It is significantly wider and heavier than the Creator model.',
@@ -200,6 +209,7 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized Longsleeve T-shirt Freestyler',
     description: 'BLL Oversized Longsleeve T-shirt Freestyler basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-15.54.36.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-Longsleeve-Freestyler.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'mindful-blue', 'stargazer',
       'heritage-brown', 'heather-grey', 'cool-heather-grey', 'heather-haze'
@@ -212,6 +222,7 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Basic Hoodie Archer',
     description: 'BLL Basic Hoodie Archer basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.02.07.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/hoodie-archer.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'canyon-pink', 'pink-joy',
       'burgundy', 'lavender', 'bright-blue', 'ocean-depth', 'caribbean-blue',
@@ -225,6 +236,7 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized Hoodie Voicer',
     description: 'BLL Oversized Hoodie Voicer basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.03.41.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-Hoodie-Voicer.png',
     availableColors: ['natural-raw', 'faded-olive', 'black', 'french-navy', 'misty-grey'],
     technicalDetails: 'Stanley/Stella Voicer (STSU256): Unisex boxy hoodie, oversized fit, 400 GSM. Features: double-layered hood, herringbone neck tape, self-fabric half moon, no drawcords, set-in sleeves, 1x1 rib at cuffs and hem.',
     category: 'top'
@@ -234,6 +246,7 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Basic Sweater Matcher',
     description: 'BLL Basic Sweater Matcher basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.05.49.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Basic-Sweater-Matcher.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'canyon-pink', 'pink-joy',
       'burgundy', 'lavender', 'bright-blue', 'ocean-depth', 'caribbean-blue',
@@ -247,6 +260,7 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized Sweater Radder',
     description: 'BLL Oversized Sweater Radder basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.07.26.png',
+    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-Sweater-Radder.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'pink-joy', 'violet',
       'dusk', 'blue-ice', 'mindful-blue', 'misty-jade', 'khaki', 'mocha',

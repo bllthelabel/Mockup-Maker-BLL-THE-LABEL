@@ -1,6 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Part } from "@google/genai";
 import { UploadedProduct, PromptSettings, GeneratedImage, LibraryProduct } from "../types";
-import { BASE_PRODUCTS } from "../lib/constants";
 
 export async function generateImage(
   prompt: string,
@@ -8,25 +7,22 @@ export async function generateImage(
   product: UploadedProduct,
   library: LibraryProduct[]
 ): Promise<GeneratedImage> {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+
   if (!apiKey) {
-    throw new Error("Geen API key gevonden. Selecteer een API key via de instellingen.");
+    throw new Error("Geen API key gevonden. Controleer de instellingen.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
+  const model = "gemini-2.5-flash-image";
+  const contentParts: Part[] = [];
 
-  // Map resolution names to SDK values
-  const resolutionMap: Record<string, string> = {
-    'HD': '1K',
-    '2K': '2K',
-    '4K': '4K'
-  };
+  // Stap 1 — Tekst-prompt (met CRITICAL regel + beeldrol-instructies)
+  contentParts.push({ text: prompt });
 
-  const model = "gemini-3.1-flash-image-preview";
-  
-  const contentParts: any[] = [{ text: prompt }];
-
-  // 1. Send the specific uploaded product (the design/unique item)
+  // Stap 2 — Image 1: het geüploade design (artwork / print)
+  // Gemini gebruikt dit als de absolute design-referentie
   if (product.file && product.mimeType) {
     const base64Data = await fileToBase64(product.file);
     contentParts.push({
@@ -37,13 +33,16 @@ export async function generateImage(
     });
   }
 
-  // 2. Send the basis product from library for shape/category context (if different from uploaded)
+  // Stap 3 — Image 2: het basisproduct (ghost mannequin / vormreferentie)
+  // Gemini gebruikt dit alleen voor silhouet, pasvorm en constructie
   if (settings.baseProductId) {
     const libraryItem = library.find(p => p.id === settings.baseProductId);
-    if (libraryItem && libraryItem.imageUrl !== product.previewUrl) {
-      try {
-        const resp = await fetch(libraryItem.imageUrl);
-        if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+    if (libraryItem) {
+      const referenceUrl = libraryItem.ghostImageUrl || libraryItem.imageUrl;
+      if (referenceUrl !== product.previewUrl) {
+        try {
+          const resp = await fetch(referenceUrl);
+        if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
         const blob = await resp.blob();
         const base64Data = await blobToBase64(blob);
         contentParts.push({
@@ -53,18 +52,20 @@ export async function generateImage(
           }
         });
       } catch (e: any) {
-        console.warn("Failed to fetch basis image for AI context:", e.message);
+        console.warn("Basisproduct foto kon niet worden geladen:", e.message);
       }
     }
   }
+}
 
-  const response = await ai.models.generateContent({
+  // Stap 4 — Verstuur naar Gemini
+  const response = await (ai as any).models.generateContent({
     model,
     contents: { parts: contentParts },
     config: {
+      responseModalities: ['IMAGE'],
       imageConfig: {
-        aspectRatio: settings.aspectRatio,
-        imageSize: resolutionMap[settings.resolution] || "1K"
+        aspectRatio: settings.aspectRatio
       }
     }
   });
@@ -82,10 +83,7 @@ export async function generateImage(
 
   if (!imageUrl) throw new Error("Geen afbeeldingsdata in response.");
 
-  return {
-    url: imageUrl,
-    timestamp: Date.now()
-  };
+  return { url: imageUrl, timestamp: Date.now() };
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -96,10 +94,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(blob);
-    reader.onload = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      resolve(base64String);
-    };
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = error => reject(error);
   });
 }

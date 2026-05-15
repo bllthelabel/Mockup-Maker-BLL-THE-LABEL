@@ -1,9 +1,10 @@
 
-import { Copy, Check, Info, Sparkles, Loader2, Download, Maximize2, X } from 'lucide-react';
+import { Copy, Check, Info, Sparkles, Loader2, Download, Maximize2, X, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { NEGATIVE_PROMPT } from '../lib/constants';
+import { NEGATIVE_PROMPT, PHOTOGRAPHY_FORMATS } from '../lib/constants';
 import { generateImage } from '../services/aiService';
+import { generatePrompt } from '../lib/generatePrompt';
 import { PromptSettings, UploadedProduct, GeneratedImage, LibraryProduct } from '../types';
 
 interface Props {
@@ -13,6 +14,12 @@ interface Props {
   library: LibraryProduct[];
 }
 
+interface FormatStatus {
+  image: GeneratedImage | null;
+  error: string | null;
+  isLoading: boolean;
+}
+
 export default function PromptPreview({ prompt, settings, product, library }: Props) {
   const [copied, setCopied] = useState<'main' | 'negative' | 'full' | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -20,10 +27,24 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
   const [error, setError] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+  // Batch generation state
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [allFormats, setAllFormats] = useState<Record<string, FormatStatus>>(() => {
+    const initial: Record<string, FormatStatus> = {};
+    PHOTOGRAPHY_FORMATS.forEach(f => {
+      initial[f.id] = { image: null, error: null, isLoading: false };
+    });
+    return initial;
+  });
+  const [previewAllImg, setPreviewAllImg] = useState<{ url: string; name: string } | null>(null);
+
   // Close preview on escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsPreviewOpen(false);
+      if (e.key === 'Escape') {
+        setIsPreviewOpen(false);
+        setPreviewAllImg(null);
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -35,27 +56,58 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const checkApiKey = async (): Promise<boolean> => {
+    if (settings.provider !== 'google') return true;
+    
+    try {
+      const aistudio = (window as any).aistudio;
+      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+        const hasKey = await aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          if (typeof aistudio.openSelectKey === 'function') {
+            await aistudio.openSelectKey();
+          }
+          return false;
+        }
+      }
+    } catch (err) {
+      console.warn("Key selection check failed, proceeding anyway", err);
+    }
+    return true;
+  };
+
+  const parseError = (err: any, provider: 'google' | 'openai'): string => {
+    console.error("Generation error:", err);
+    let errorMsg = err.message || "";
+    
+    if (errorMsg.includes("<html>") || errorMsg.includes("502") || errorMsg.includes("Bad Gateway")) {
+      return "De server is tijdelijk onbereikbaar (502). Probeer het over enkele ogenblikken opnieuw.";
+    }
+
+    if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("PERMISSION_DENIED") || errorMsg.includes("403")) {
+      if (provider === 'google') {
+        return "Toegang geweigerd of model niet beschikbaar. Dit model (Gemini 3.1) vereist een API-sleutel van een Google Cloud-project met facturering (billing) ingeschakeld.";
+      } else {
+        return "Toegang geweigerd voor OpenAI. Controleer je OpenAI API key.";
+      }
+    }
+    
+    if (errorMsg.includes("quota") || errorMsg.includes("limit")) {
+      return `Je hebt je quota bereikt voor de ${provider === 'google' ? 'Gemini' : 'OpenAI'} API.`;
+    }
+    
+    return errorMsg || "Er is iets misgegaan bij het genereren.";
+  };
+
   const handleGenerate = async () => {
     if (!product.file && !settings.baseProductId) {
       setError("Upload eerst een productafbeelding of kies een basisproduct uit de bibliotheek.");
       return;
     }
 
-    // Check for API key if using high-res models
-    try {
-      const aistudio = (window as any).aistudio;
-      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-        const hasKey = await aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          setError("Voor HD, 2K en 4K generatie is een eigen Gemini API Key vereist.");
-          if (typeof aistudio.openSelectKey === 'function') {
-            await aistudio.openSelectKey();
-          }
-          return; // Stop here if key selection was prompted
-        }
-      }
-    } catch (err) {
-      console.warn("Key selection check failed, proceeding anyway", err);
+    if (!(await checkApiKey())) {
+      setError("Voor HD, 2K en 4K generatie is een eigen Gemini API Key vereist.");
+      return;
     }
     
     setIsGenerating(true);
@@ -64,28 +116,59 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
       const result = await generateImage(prompt, settings, product, library);
       setGeneratedImg(result);
     } catch (err: any) {
-      console.error("Generation error:", err);
-      let errorMsg = err.message || "";
-      
-      // Handle the case where the server returns a 502/HTML error page
-      if (errorMsg.includes("<html>") || errorMsg.includes("502") || errorMsg.includes("Bad Gateway")) {
-        errorMsg = "De server is tijdelijk onbereikbaar (502). Probeer het over enkele ogenblikken opnieuw. Als dit blijft gebeuren, controleer dan of je API key nog geldig is of verlaag de resolutie (bijv. naar HD).";
-      }
-
-      if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("PERMISSION_DENIED") || errorMsg.includes("403")) {
-        setError("Toegang geweigerd of model niet beschikbaar. Zorg ervoor dat je een API key hebt geselecteerd met de juiste rechten en dat de regio wordt ondersteund.");
-        const aistudio = (window as any).aistudio;
-        if (aistudio && typeof aistudio.openSelectKey === 'function') {
-          await aistudio.openSelectKey();
-        }
-      } else if (errorMsg.includes("quota") || errorMsg.includes("limit")) {
-        setError("Je hebt je quota bereikt voor de Gemini API. Probeer het later opnieuw of gebruik een andere API key.");
-      } else {
-        setError(errorMsg || "Er is iets misgegaan bij het genereren.");
-      }
+      setError(parseError(err, settings.provider));
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGenerateAll = async () => {
+    if (!product.file && !settings.baseProductId) {
+      setError("Upload eerst een productafbeelding of kies een basisproduct uit de bibliotheek.");
+      return;
+    }
+
+    if (!(await checkApiKey())) {
+      setError("Voor HD, 2K en 4K generatie is een eigen Gemini API Key vereist.");
+      return;
+    }
+
+    setIsGeneratingAll(true);
+    setError(null);
+
+    // Initial state: all loading
+    const initialBatchState: typeof allFormats = {};
+    PHOTOGRAPHY_FORMATS.forEach(format => {
+      initialBatchState[format.id] = { image: null, error: null, isLoading: true };
+    });
+    setAllFormats(initialBatchState);
+
+    const results = await Promise.allSettled(
+      PHOTOGRAPHY_FORMATS.map(async (format) => {
+        const formatPrompt = generatePrompt(format, settings, library);
+        return { formatId: format.id, image: await generateImage(formatPrompt, settings, product, library) };
+      })
+    );
+
+    const finalBatchState = { ...initialBatchState };
+    results.forEach((res) => {
+      if (res.status === 'fulfilled') {
+        finalBatchState[res.value.formatId] = { image: res.value.image, error: null, isLoading: false };
+      } else {
+        // Find which format failed
+        const formatId = PHOTOGRAPHY_FORMATS.find((_, i) => results[i] === res)?.id;
+        if (formatId) {
+          finalBatchState[formatId] = { 
+            image: null, 
+            error: parseError(res.reason, settings.provider), 
+            isLoading: false 
+          };
+        }
+      }
+    });
+
+    setAllFormats(finalBatchState);
+    setIsGeneratingAll(false);
   };
 
   const resetAndRetry = () => {
@@ -94,20 +177,40 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
     handleGenerate();
   };
 
-  const downloadImage = () => {
-    if (!generatedImg) return;
+  const downloadImage = (url?: string, label?: string) => {
+    const finalUrl = url || generatedImg?.url;
+    if (!finalUrl) return;
     
     const selectedProduct = settings.baseProductId ? library.find(p => p.id === settings.baseProductId) : null;
     const productName = selectedProduct ? selectedProduct.name.replace(/\s+/g, '-') : 'Unknown-Product';
     const colorName = settings.color ? settings.color.replace(/\s+/g, '-') : 'Original';
     const designName = settings.designName ? settings.designName.trim().replace(/\s+/g, '-') : 'Design';
+    const formatLabel = label ? `-${label.replace(/\s+/g, '-')}` : '';
     
-    const filename = `BLL-THE-LABEL-${designName}-${productName}-${colorName}-${Date.now()}.png`;
+    const filename = `BLL-THE-LABEL-${designName}-${productName}-${colorName}${formatLabel}-${Date.now()}.png`;
     
     const link = document.createElement('a');
-    link.href = generatedImg.url;
+    link.href = finalUrl;
     link.download = filename;
     link.click();
+  };
+
+  const downloadAllFormats = () => {
+    Object.entries(allFormats).forEach(([id, data]) => {
+      const status = data as FormatStatus;
+      if (status.image) {
+        const format = PHOTOGRAPHY_FORMATS.find(f => f.id === id);
+        downloadImage(status.image.url, format?.name || id);
+      }
+    });
+  };
+
+  const clearAllFormats = () => {
+    const cleared: Record<string, FormatStatus> = {};
+    PHOTOGRAPHY_FORMATS.forEach(f => {
+      cleared[f.id] = { image: null, error: null, isLoading: false };
+    });
+    setAllFormats(cleared);
   };
 
   return (
@@ -193,13 +296,133 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
                 )}
               </button>
               {error && (
-                <p className="text-xs text-red-500 font-medium bg-red-50 p-3 rounded-lg border border-red-100">
-                  {error}
-                </p>
+                <div className="space-y-3">
+                  <p className="text-xs text-red-500 font-medium bg-red-50 p-4 rounded-xl border border-red-100 flex flex-col gap-2">
+                    <span className="flex items-center gap-2">
+                      <X className="w-3 h-3" />
+                      {error}
+                    </span>
+                    {error.includes("billing") && (
+                      <a 
+                        href="https://ai.google.dev/gemini-api/docs/billing" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="text-[#D32416] hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <Info className="w-3 h-3" />
+                        Bekijk billing documentatie
+                      </a>
+                    )}
+                  </p>
+                  {(error.includes("Toegang geweigerd") || error.includes("API Key")) && (
+                    <button
+                      onClick={async () => {
+                        const aistudio = (window as any).aistudio;
+                        if (aistudio && typeof aistudio.openSelectKey === 'function') {
+                          await aistudio.openSelectKey();
+                        }
+                      }}
+                      className="w-full py-3 px-4 bg-stone-100 hover:bg-stone-200 text-[#1A1A1A] rounded-xl text-xs font-bold transition-colors"
+                    >
+                      Selecteer API Key
+                    </button>
+                  )}
+                </div>
               )}
             </motion.div>
           )}
         </AnimatePresence>
+      </section>
+
+      {/* 5 Formats Batch Generation Section */}
+      <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A]">Alle {PHOTOGRAPHY_FORMATS.length} Formats</h3>
+          {(Object.values(allFormats) as FormatStatus[]).some(f => f.image) && !isGeneratingAll && (
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={downloadAllFormats}
+                className="text-xs font-bold text-[#D32416] flex items-center gap-2 hover:underline"
+              >
+                <Download className="w-3 h-3" />
+                Alles downloaden
+              </button>
+              <button 
+                onClick={clearAllFormats}
+                className="text-xs font-bold text-stone-400 flex items-center gap-2 hover:text-[#D32416]"
+              >
+                <Trash2 className="w-3 h-3" />
+                Wis
+              </button>
+            </div>
+          )}
+        </div>
+
+        {(Object.values(allFormats) as FormatStatus[]).every(f => !f.image && !f.isLoading && !f.error) ? (
+          <button 
+            onClick={handleGenerateAll}
+            disabled={isGeneratingAll || (!product.file && !settings.baseProductId)}
+            className="w-full py-10 px-6 bg-stone-50 border-2 border-dashed border-stone-200 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all hover:border-[#D32416]/20 hover:bg-white disabled:opacity-50"
+          >
+            <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-stone-100 flex items-center justify-center text-[#D32416]">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <span className="block text-sm font-bold text-[#1A1A1A]">Genereer Alle {PHOTOGRAPHY_FORMATS.length} Formats</span>
+              <span className="block text-[10px] text-stone-400 uppercase tracking-widest mt-1">
+                Momenten · Detail · Portret · Flatlay · Ghost
+              </span>
+            </div>
+          </button>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {PHOTOGRAPHY_FORMATS.map((format) => {
+              const data = allFormats[format.id];
+              return (
+                <div key={format.id} className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">{format.name}</span>
+                  </div>
+                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-50 border border-stone-100 group">
+                    {data.isLoading ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 text-[#D32416] animate-spin" />
+                        <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Laden...</span>
+                      </div>
+                    ) : data.error ? (
+                      <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
+                        <p className="text-[9px] text-red-400 font-medium leading-tight">{data.error}</p>
+                      </div>
+                    ) : data.image ? (
+                      <>
+                        <img 
+                          src={data.image.url} 
+                          alt={format.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <button 
+                            onClick={() => downloadImage(data.image?.url, format.name)}
+                            className="p-2 bg-white rounded-full text-[#1A1A1A] hover:bg-[#D32416] hover:text-white transition-all transform hover:scale-110"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => setPreviewAllImg({ url: data.image!.url, name: format.name })}
+                            className="p-2 bg-white rounded-full text-[#1A1A1A] hover:bg-[#D32416] hover:text-white transition-all transform hover:scale-110"
+                          >
+                            <Maximize2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Main Prompt */}
@@ -297,6 +520,61 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
               <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center w-full">
                 <p className="text-white/40 text-[10px] uppercase tracking-widest font-bold">
                   {settings.designName || 'BLL-DESIGN'} • {settings.resolution}
+                </p>
+                <p className="text-white/20 text-[8px] mt-2">
+                  Druk op ESC om te sluiten
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Preview Overlay */}
+      <AnimatePresence>
+        {previewAllImg && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1A1A]/95 p-4 sm:p-10 backdrop-blur-sm"
+            onClick={() => setPreviewAllImg(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative max-w-full max-h-full flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setPreviewAllImg(null)}
+                className="absolute -top-12 sm:-top-16 right-0 text-white/60 hover:text-white transition-colors p-2"
+              >
+                <X className="w-8 h-8" />
+              </button>
+
+              <div className="absolute -top-12 sm:-top-16 left-0 flex items-center gap-4">
+                <button
+                  onClick={() => downloadImage(previewAllImg.url, previewAllImg.name)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold transition-all backdrop-blur-md border border-white/10"
+                >
+                  <Download className="w-4 h-4" />
+                  Download {previewAllImg.name}
+                </button>
+              </div>
+
+              <img
+                src={previewAllImg.url}
+                alt={previewAllImg.name}
+                className="max-w-full max-h-[80vh] sm:max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                referrerPolicy="no-referrer"
+              />
+              
+              <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center w-full">
+                <p className="text-white/40 text-[10px] uppercase tracking-widest font-bold">
+                  {previewAllImg.name} • {settings.designName || 'BLL-DESIGN'}
                 </p>
                 <p className="text-white/20 text-[8px] mt-2">
                   Druk op ESC om te sluiten

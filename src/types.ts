@@ -5,11 +5,13 @@ export type Environment = 'indoor minimal' | 'outdoor golden hour' | 'beach / sa
 export type Mood = 'calm' | 'reflective' | 'confident' | 'soft' | 'grounded';
 export type AspectRatio = '3:4' | '4:5' | '1:1';
 export type Resolution = 'HD' | '2K' | '4K';
+export type AIProvider = 'google' | 'openai';
 
 export interface LibraryProduct {
   id: string;
   name: string;
   imageUrl: string;
+  ghostImageUrl?: string;
   description: string;
   isCustom?: boolean;
   availableColors?: string[];
@@ -43,6 +45,7 @@ export interface PromptSettings {
   color?: string;
   printTechnique?: PrintTechnique;
   designName?: string;
+  provider: AIProvider;
 }
 
 export interface UploadedProduct {
