@@ -1,5 +1,6 @@
-import { GoogleGenAI, Part } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { UploadedProduct, PromptSettings, GeneratedImage, LibraryProduct } from "../types";
+import { BASE_PRODUCTS } from "../lib/constants";
 
 export async function generateImage(
   prompt: string,
@@ -7,22 +8,37 @@ export async function generateImage(
   product: UploadedProduct,
   library: LibraryProduct[]
 ): Promise<GeneratedImage> {
+  const provider = settings.provider || 'google';
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  if (provider === 'google') {
+    return generateGeminiImage(prompt, settings, product, library);
+  } else {
+    return generateOpenAIImage(prompt, settings, product, library);
+  }
+}
 
+async function generateGeminiImage(
+  prompt: string,
+  settings: PromptSettings,
+  product: UploadedProduct,
+  library: LibraryProduct[]
+): Promise<GeneratedImage> {
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("Geen API key gevonden. Controleer de instellingen.");
+    throw new Error("Geen Google API key gevonden. Selecteer een API key via de instellingen.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-2.5-flash-image";
-  const contentParts: Part[] = [];
 
-  // Stap 1 — Tekst-prompt (met CRITICAL regel + beeldrol-instructies)
-  contentParts.push({ text: prompt });
+  const resolutionMap: Record<string, string> = {
+    'HD': '1K',
+    '2K': '2K',
+    '4K': '4K'
+  };
 
-  // Stap 2 — Image 1: het geüploade design (artwork / print)
-  // Gemini gebruikt dit als de absolute design-referentie
+  const model = "gemini-3.1-flash-image-preview";
+  const contentParts: any[] = [{ text: prompt }];
+
   if (product.file && product.mimeType) {
     const base64Data = await fileToBase64(product.file);
     contentParts.push({
@@ -33,16 +49,12 @@ export async function generateImage(
     });
   }
 
-  // Stap 3 — Image 2: het basisproduct (ghost mannequin / vormreferentie)
-  // Gemini gebruikt dit alleen voor silhouet, pasvorm en constructie
   if (settings.baseProductId) {
     const libraryItem = library.find(p => p.id === settings.baseProductId);
-    if (libraryItem) {
-      const referenceUrl = libraryItem.ghostImageUrl || libraryItem.imageUrl;
-      if (referenceUrl !== product.previewUrl) {
-        try {
-          const resp = await fetch(referenceUrl);
-        if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
+    if (libraryItem && libraryItem.imageUrl !== product.previewUrl) {
+      try {
+        const resp = await fetch(libraryItem.imageUrl);
+        if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
         const blob = await resp.blob();
         const base64Data = await blobToBase64(blob);
         contentParts.push({
@@ -52,20 +64,18 @@ export async function generateImage(
           }
         });
       } catch (e: any) {
-        console.warn("Basisproduct foto kon niet worden geladen:", e.message);
+        console.warn("Failed to fetch basis image for AI context:", e.message);
       }
     }
   }
-}
 
-  // Stap 4 — Verstuur naar Gemini
-  const response = await (ai as any).models.generateContent({
+  const response = await ai.models.generateContent({
     model,
     contents: { parts: contentParts },
     config: {
-      responseModalities: ['IMAGE'],
       imageConfig: {
-        aspectRatio: settings.aspectRatio
+        aspectRatio: settings.aspectRatio,
+        imageSize: resolutionMap[settings.resolution] || "1K"
       }
     }
   });
@@ -83,7 +93,57 @@ export async function generateImage(
 
   if (!imageUrl) throw new Error("Geen afbeeldingsdata in response.");
 
-  return { url: imageUrl, timestamp: Date.now() };
+  return {
+    url: imageUrl,
+    timestamp: Date.now()
+  };
+}
+
+async function generateOpenAIImage(
+  prompt: string,
+  settings: PromptSettings,
+  product: UploadedProduct,
+  library: LibraryProduct[]
+): Promise<GeneratedImage> {
+  const formData = new FormData();
+  formData.append('prompt', prompt);
+  formData.append('aspectRatio', settings.aspectRatio);
+  
+  if (product.file) {
+    formData.append('image', product.file);
+  }
+
+  try {
+    const response = await fetch('/api/openai/generate', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server Fout (${response.status})`);
+    }
+
+    const result = await response.json();
+    const imageData = result.data[0];
+    
+    if (imageData.b64_json) {
+      return {
+        url: `data:image/png;base64,${imageData.b64_json}`,
+        timestamp: Date.now()
+      };
+    } else if (imageData.url) {
+      return {
+        url: imageData.url,
+        timestamp: Date.now()
+      };
+    } else {
+      throw new Error("Geen afbeeldingsdata gevonden in OpenAI response");
+    }
+  } catch (error: any) {
+    console.error("OpenAI proxy error:", error);
+    throw new Error(`OpenAI Fout: ${error.message || "Onbekende fout"}`);
+  }
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -94,7 +154,10 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(blob);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onload = () => {
+      const base64String = (reader.result as string).split(',')[1];
+      resolve(base64String);
+    };
     reader.onerror = error => reject(error);
   });
 }

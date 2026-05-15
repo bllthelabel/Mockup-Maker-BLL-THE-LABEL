@@ -171,7 +171,6 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Basic T-shirt Creator',
     description: 'BLL Basic T-shirt Creator basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-15.13.13.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/basic-tshirt-creator.png',
     availableColors: [
       'white', 'natural-raw', 'vintage-white', 'off-white',
       'earthy-red', 'deep-plum', 'blue-grey', 'faded-olive', 'honey-paper',
@@ -194,11 +193,10 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized T-shirt Freestyler',
     description: 'BLL Oversized T-shirt Freestyler basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-15.48.06.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-tshirt-Freestyler.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'fraiche-peche', 'burgundy',
       'kaffa-coffee', 'worker-blue', 'mindful-blue', 'aloe', 'stargazer', 'glazed-green',
-      'misty-jade', 'khaki', 'day-fall', 'heritage-brown', 'mocha', 'desert-dust', 'cream',
+      'misty-jade', 'khaki', 'day-fall', 'heritage-brown', 'mocha', 'desert-dust', 'simple-white', 'cream',
       'heather-grey', 'cool-heather-grey', 'heather-haze', 'dark-heather-grey'
     ],
     technicalDetails: 'Stanley/Stella Freestyler (STTU788): Unisex ultra-heavy T-shirt, boxy oversized fit, 240 GSM. This is a heavy-duty garment with a structured, wide silhouette and dropped shoulders. The fabric is thick and stiff (dry handfeel), maintaining its boxy shape. It is significantly wider and heavier than the Creator model.',
@@ -209,7 +207,6 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized Longsleeve T-shirt Freestyler',
     description: 'BLL Oversized Longsleeve T-shirt Freestyler basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-15.54.36.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-Longsleeve-Freestyler.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'mindful-blue', 'stargazer',
       'heritage-brown', 'heather-grey', 'cool-heather-grey', 'heather-haze'
@@ -222,7 +219,6 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Basic Hoodie Archer',
     description: 'BLL Basic Hoodie Archer basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.02.07.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/hoodie-archer.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'canyon-pink', 'pink-joy',
       'burgundy', 'lavender', 'bright-blue', 'ocean-depth', 'caribbean-blue',
@@ -236,7 +232,6 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized Hoodie Voicer',
     description: 'BLL Oversized Hoodie Voicer basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.03.41.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-Hoodie-Voicer.png',
     availableColors: ['natural-raw', 'faded-olive', 'black', 'french-navy', 'misty-grey'],
     technicalDetails: 'Stanley/Stella Voicer (STSU256): Unisex boxy hoodie, oversized fit, 400 GSM. Features: double-layered hood, herringbone neck tape, self-fabric half moon, no drawcords, set-in sleeves, 1x1 rib at cuffs and hem.',
     category: 'top'
@@ -246,7 +241,6 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Basic Sweater Matcher',
     description: 'BLL Basic Sweater Matcher basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.05.49.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Basic-Sweater-Matcher.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'canyon-pink', 'pink-joy',
       'burgundy', 'lavender', 'bright-blue', 'ocean-depth', 'caribbean-blue',
@@ -260,7 +254,6 @@ export const BASE_PRODUCTS: LibraryProduct[] = [
     name: 'Oversized Sweater Radder',
     description: 'BLL Oversized Sweater Radder basis voor jouw ontwerpen.',
     imageUrl: 'https://bllthelabel.com/app/uploads/2026/04/Schermafbeelding-2026-04-29-om-16.07.26.png',
-    ghostImageUrl: 'https://bllthelabel.com/app/uploads/2026/05/Oversized-Sweater-Radder.png',
     availableColors: [
       'white', 'natural-raw', 'black', 'french-navy', 'pink-joy', 'violet',
       'dusk', 'blue-ice', 'mindful-blue', 'misty-jade', 'khaki', 'mocha',

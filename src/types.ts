@@ -11,7 +11,6 @@ export interface LibraryProduct {
   id: string;
   name: string;
   imageUrl: string;
-  ghostImageUrl?: string;
   description: string;
   isCustom?: boolean;
   availableColors?: string[];
