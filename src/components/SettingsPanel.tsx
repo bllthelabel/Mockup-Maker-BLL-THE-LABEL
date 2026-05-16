@@ -134,7 +134,7 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
           <h3 className="font-semibold text-[#1A1A1A]">3. Instellingen</h3>
         </div>
         <div className="flex bg-stone-100 p-1 rounded-lg">
-          {(['google', 'openai'] as AIProvider[]).map((p) => (
+          {(['google', 'openai'] as const).map((p) => (
             <button
               key={p}
               onClick={() => update('provider', p)}
@@ -151,26 +151,27 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
         </div>
       </div>
 
-      <div className="bg-white p-5 rounded-3xl border border-stone-100 shadow-sm divide-y divide-stone-50">
+      <div className="bg-white p-3 rounded-2xl border border-stone-100 shadow-sm divide-y divide-stone-50">
         <Section title="Model & Compositie" defaultOpen>
-          <div className="space-y-4 pt-2">
+          <div className="space-y-3 pt-1">
             <OptionRow label="Design Naam">
               <input 
                 type="text"
                 value={settings.designName || ''}
                 onChange={(e) => update('designName', e.target.value)}
-                placeholder="Bijv. Classic Logo 2026"
-                className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#D32416]/50 focus:border-[#D32416] transition-all"
+                placeholder="Bijv. Classic Logo"
+                className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-2 py-1.5 text-[11px] text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#D32416]/50 focus:border-[#D32416] transition-all"
               />
             </OptionRow>
 
-            <div className="grid grid-cols-2 gap-4">
-              <OptionRow label="Model type" disabled={isNoModelFormat}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <OptionRow label="Model" disabled={isNoModelFormat}>
                 <Select 
                   value={effectiveModelType} 
                   options={['male', 'female', 'androgynous', 'no model']} 
                   onChange={(v) => update('modelType', v as ModelType)} 
                   disabled={isNoModelFormat}
+                  className="py-1 text-[10px]"
                 />
               </OptionRow>
 
@@ -179,22 +180,25 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
                   value={settings.position} 
                   options={['front', 'back', 'side', 'close-up']} 
                   onChange={(v) => update('position', v as Position)} 
+                  className="py-1 text-[10px]"
                 />
               </OptionRow>
 
-              <OptionRow label="Omgeving" info="De omgeving kan ook worden beinvloed door het gekozen format.">
+              <OptionRow label="Omgeving">
                 <Select 
                   value={settings.environment} 
                   options={['indoor minimal', 'outdoor golden hour', 'beach / sand tones', 'city calm', 'neutral studio with natural light', 'neutrale fotostudio met passend licht']} 
                   onChange={(v) => update('environment', v as Environment)} 
+                  className="py-1 text-[10px]"
                 />
               </OptionRow>
 
-              <OptionRow label="Mood" info="De sfeer van de foto. Sommige formats forceren een specifieke mood.">
+              <OptionRow label="Mood">
                 <Select 
                   value={settings.mood} 
                   options={['calm', 'reflective', 'confident', 'soft', 'grounded', 'ontspannen']} 
                   onChange={(v) => update('mood', v as Mood)} 
+                  className="py-1 text-[10px]"
                 />
               </OptionRow>
             </div>
@@ -202,92 +206,86 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
         </Section>
 
         <Section title="Kleur & Techniek">
-          <div className="space-y-6 pt-4">
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-                  <input 
-                    type="text"
-                    value={colorSearch}
-                    onChange={(e) => setColorSearch(e.target.value)}
-                    placeholder="Zoek kleur op naam..."
-                    className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-9 pr-3 py-2 text-[10px] text-[#1A1A1A] focus:outline-none focus:border-[#D32416]/30"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  <button 
-                    onClick={() => setActiveCategory(null)}
-                    className={cn(
-                      "px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md transition-all border",
-                      !activeCategory ? "bg-[#D32416] text-white border-[#D32416]" : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
-                    )}
-                  >
-                    Alles
-                  </button>
-                  {categories.map(cat => (
-                    <button 
-                      key={cat}
-                      onClick={() => setActiveCategory(cat)}
-                      className={cn(
-                        "px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md transition-all border",
-                        activeCategory === cat ? "bg-[#D32416] text-white border-[#D32416]" : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+          <div className="grid grid-cols-1 xl:grid-cols-[200px,1fr] gap-3 pt-2">
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-stone-400" />
+                <input 
+                  type="text"
+                  value={colorSearch}
+                  onChange={(e) => setColorSearch(e.target.value)}
+                  placeholder="Zoek kleur..."
+                  className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-7 pr-2 py-1 text-[9px] text-[#1A1A1A] focus:outline-none focus:border-[#D32416]/30"
+                />
               </div>
-
-              <div className="grid grid-cols-6 gap-2 max-h-[160px] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-stone-200">
-                {filteredColors.map((color) => (
-                  <button
-                    key={color.id}
-                    onClick={() => update('color', color.name)}
+              <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto pr-1">
+                <button 
+                  onClick={() => setActiveCategory(null)}
+                  className={cn(
+                    "px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all border",
+                    !activeCategory ? "bg-[#D32416] text-white border-[#D32416]" : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
+                  )}
+                >
+                  Alles
+                </button>
+                {categories.map(cat => (
+                  <button 
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
                     className={cn(
-                      "w-full aspect-square rounded-xl border-2 transition-all relative group flex items-center justify-center",
-                      settings.color === color.name 
-                        ? "border-[#D32416] scale-105 shadow-sm" 
-                        : "border-stone-50 hover:border-stone-200"
+                      "px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all border",
+                      activeCategory === cat ? "bg-[#D32416] text-white border-[#D32416]" : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
                     )}
-                    title={color.name}
                   >
-                    <div 
-                      className="w-4 h-4 rounded-full border border-black/5"
-                      style={{ backgroundColor: color.hex }}
-                    />
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                      {color.name}
-                    </div>
+                    {cat}
                   </button>
                 ))}
               </div>
             </div>
 
-            <OptionRow label="Druktechniek">
-              <Select 
-                value={settings.printTechnique || 'none'} 
-                options={PRINT_TECHNIQUES.map(t => t.id)} 
-                onChange={(v) => update('printTechnique', v as PrintTechnique)} 
-                displayMap={printTechniqueLabels}
-              />
-              {settings.printTechnique && settings.printTechnique !== 'none' && (
-                <p className="text-[10px] text-stone-500 mt-1 italic">
-                  {PRINT_TECHNIQUES.find(t => t.id === settings.printTechnique)?.description}
-                </p>
-              )}
-            </OptionRow>
+            <div className="space-y-3">
+              <div className="grid grid-cols-10 gap-1 max-h-[100px] overflow-y-auto p-0.5 scrollbar-thin">
+                {filteredColors.map((color) => (
+                  <button
+                    key={color.id}
+                    onClick={() => update('color', color.name)}
+                    className={cn(
+                      "w-full aspect-square rounded-md border transition-all relative group flex items-center justify-center",
+                      settings.color === color.name 
+                        ? "border-[#D32416] bg-[#D32416]/5 shadow-sm" 
+                        : "border-stone-50 hover:border-stone-200"
+                    )}
+                    title={color.name}
+                  >
+                    <div 
+                      className="w-2.5 h-2.5 rounded-full border border-black/5"
+                      style={{ backgroundColor: color.hex }}
+                    />
+                  </button>
+                ))}
+              </div>
+              
+              <OptionRow label="Druktechniek">
+                <Select 
+                  value={settings.printTechnique || 'none'} 
+                  options={PRINT_TECHNIQUES.map(t => t.id)} 
+                  onChange={(v) => update('printTechnique', v as PrintTechnique)} 
+                  displayMap={printTechniqueLabels}
+                  className="py-1 text-[10px]"
+                />
+              </OptionRow>
+            </div>
           </div>
         </Section>
 
-        <Section title="Format & Resolutie">
-          <div className="grid grid-cols-2 gap-4 pt-4">
+        <Section title="Resolutie">
+          <div className="grid grid-cols-2 gap-3 pt-2">
             <OptionRow label="Aspect ratio">
               <Select 
                 value={settings.aspectRatio} 
                 options={['3:4', '4:5', '1:1']} 
                 onChange={(v) => update('aspectRatio', v as AspectRatio)} 
+                className="py-1.5 text-[11px]"
               />
             </OptionRow>
 
@@ -296,6 +294,7 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
                 value={settings.resolution} 
                 options={['HD', '2K', '4K']} 
                 onChange={(v) => update('resolution', v as Resolution)} 
+                className="py-1.5 text-[11px]"
               />
             </OptionRow>
           </div>

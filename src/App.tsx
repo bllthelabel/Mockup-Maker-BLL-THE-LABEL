@@ -1,12 +1,8 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Info, Shirt, Camera, Sliders, Image as ImageIcon, CheckCircle2, ChevronRight } from 'lucide-react';
-import UnifiedProductSelector from './components/UnifiedProductSelector';
+import { motion } from 'motion/react';
+import { Sparkles, Upload, Shirt, Camera, Sliders, CheckCircle2, ChevronRight, Image as ImageIcon, Wand2 } from 'lucide-react';
+import ProductUploader from './components/ProductUploader';
+import BaseProductSelector from './components/BaseProductSelector';
 import FormatSelector from './components/FormatSelector';
 import SettingsPanel from './components/SettingsPanel';
 import PromptPreview from './components/PromptPreview';
@@ -21,52 +17,45 @@ export default function App() {
   const [settings, setSettings] = useState<PromptSettings>(DEFAULT_SETTINGS);
   const [userLibrary, setUserLibrary] = useState<LibraryProduct[]>([]);
 
-  // Load from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('bll_user_library');
     if (saved) {
-      try {
-        setUserLibrary(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load library", e);
-      }
+      try { setUserLibrary(JSON.parse(saved)); } catch {}
     }
   }, []);
 
-  // Save to localStorage
   const saveToLocalStorage = (lib: LibraryProduct[]) => {
     localStorage.setItem('bll_user_library', JSON.stringify(lib));
   };
 
-  const fullLibrary = useMemo(() => [...userLibrary, ...BASE_PRODUCTS], [userLibrary, BASE_PRODUCTS]);
+  const fullLibrary = useMemo(() => [...userLibrary, ...BASE_PRODUCTS], [userLibrary]);
+  const bllProducts = useMemo(() => BASE_PRODUCTS, []);
+  const customLibrary = useMemo(() => userLibrary, [userLibrary]);
 
-  const selectedFormat = useMemo(() => 
+  const selectedFormat = useMemo(() =>
     PHOTOGRAPHY_FORMATS.find(f => f.id === selectedFormatId) || PHOTOGRAPHY_FORMATS[0],
     [selectedFormatId]
   );
 
-  const prompt = useMemo(() => 
+  const prompt = useMemo(() =>
     generatePrompt(selectedFormat, settings, fullLibrary),
     [selectedFormat, settings, fullLibrary]
   );
 
   const handleSaveToLibrary = () => {
     if (!product.previewUrl) return;
-    
     const newId = `custom-${Date.now()}`;
     const newItem: LibraryProduct = {
       id: newId,
       name: `Design ${userLibrary.length + 1}`,
       imageUrl: product.previewUrl,
-      description: "Zelf geüpload item",
-      isCustom: true
+      description: 'Zelf geüpload item',
+      isCustom: true,
     };
-
     if (product.file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const persistItem = { ...newItem, imageUrl: base64 };
+        const persistItem = { ...newItem, imageUrl: reader.result as string };
         const next = [persistItem, ...userLibrary];
         setUserLibrary(next);
         saveToLocalStorage(next);
@@ -80,7 +69,7 @@ export default function App() {
   };
 
   const handleRemoveFromLibrary = (id: string) => {
-    const next = userLibrary.filter(item => item.id !== id);
+    const next = userLibrary.filter(i => i.id !== id);
     setUserLibrary(next);
     saveToLocalStorage(next);
     if (settings.baseProductId === id) {
@@ -88,176 +77,127 @@ export default function App() {
     }
   };
 
-  // Workflow steps logic
-  const steps = [
-    { id: 1, label: 'Product', icon: Shirt, active: true, completed: !!(product.previewUrl || settings.baseProductId) },
-    { id: 2, label: 'Format', icon: Camera, active: !!(product.previewUrl || settings.baseProductId), completed: !!selectedFormatId },
-    { id: 3, label: 'Instellingen', icon: Sliders, active: !!selectedFormatId, completed: true },
-    { id: 4, label: 'Genereren', icon: Sparkles, active: !!(product.previewUrl || settings.baseProductId), completed: false },
-  ];
-
-  const currentStep = steps.find(s => !s.completed)?.id || 4;
-
   return (
     <div className="min-h-screen bg-[#FDFDFC] text-[#1A1A1A] font-sans selection:bg-[#D32416]/10 selection:text-[#D32416]">
-      {/* Step Indicator Header */}
+      {/* Header */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-none">
-          <div className="h-16 flex items-center justify-between min-w-[500px]">
-            <div className="flex items-center gap-1.5 mr-8">
-              <div className="w-8 h-8 bg-[#D32416] rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm ring-4 ring-[#D32416]/5">B</div>
-              <span className="font-bold tracking-tighter text-sm">PROMPT STUDIO</span>
-            </div>
-
-            <div className="flex items-center gap-8 flex-1 justify-center">
-              {steps.map((step, idx) => {
-                const Icon = step.icon;
-                const isCurrent = currentStep === step.id;
-                return (
-                  <div key={step.id} className="flex items-center gap-3">
-                    <div className={cn(
-                      "flex items-center gap-2 group transition-all",
-                      isCurrent ? "text-[#1A1A1A]" : (step.completed ? "text-[#D32416]" : "text-stone-300")
-                    )}>
-                      <div className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all",
-                        isCurrent ? "bg-[#1A1A1A] text-white" : (step.completed ? "bg-[#D32416] text-white" : "bg-stone-100 text-stone-400 group-hover:bg-stone-200")
-                      )}>
-                        {step.completed && !isCurrent ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.id}
-                      </div>
-                      <span className={cn(
-                        "text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
-                        isCurrent ? "opacity-100" : "opacity-60"
-                      )}>{step.label}</span>
-                    </div>
-                    {idx < steps.length - 1 && <ChevronRight className="w-3 h-3 text-stone-200" />}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-3 ml-8">
-              <span className="bg-[#D32416]/5 text-[#D32416] text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-[#D32416]/10">
-                Beta v2.0
-              </span>
-            </div>
+        <div className="max-w-[1600px] mx-auto px-6 h-12 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-[#D32416] rounded flex items-center justify-center text-white font-black text-xs">B</div>
+            <span className="font-bold tracking-tighter text-xs uppercase">Prompt Studio</span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8 md:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] xl:grid-cols-[1fr,440px] gap-8 xl:gap-16 items-start">
+      <main className="max-w-[1750px] mx-auto px-4 py-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.5fr,1fr] gap-4 items-start">
           
-          {/* Main Content Area */}
-          <div className="space-y-12 min-w-0">
-            {/* Step 1 & 2: Content Selection */}
-            <div className="grid md:grid-cols-2 gap-8 md:gap-12">
-              <motion.section
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn("transition-all duration-500", currentStep === 1 ? "opacity-100 scale-100" : "opacity-40 grayscale-[0.5]")}
-              >
-                <UnifiedProductSelector 
-                  product={product} 
-                  onUpload={setProduct} 
-                  library={fullLibrary}
-                  selectedBaseId={settings.baseProductId}
-                  onSelect={(id) => setSettings(s => ({ ...s, baseProductId: id }))}
-                  onSaveToLibrary={handleSaveToLibrary}
-                  onRemoveFromLibrary={handleRemoveFromLibrary}
-                />
-              </motion.section>
-
-              <motion.section
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className={cn("transition-all duration-500", currentStep === 2 ? "opacity-100 scale-100" : "opacity-40 grayscale-[0.5]")}
-              >
-                <FormatSelector selectedId={selectedFormatId} onSelect={setSelectedFormatId} />
-              </motion.section>
+          {/* LINKER KOLOM: CONTROLS */}
+          <div className="space-y-3">
+            
+            {/* Sectie 1: Top Input Grid (3 kolommen op XL) */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+              <ProductUploader
+                product={product}
+                onUpload={setProduct}
+                customLibrary={customLibrary}
+                onSaveToLibrary={handleSaveToLibrary}
+                onRemoveFromLibrary={handleRemoveFromLibrary}
+                selectedBaseId={settings.baseProductId}
+                onSelectCustom={(id) => setSettings(s => ({ ...s, baseProductId: id }))}
+              />
+              <BaseProductSelector
+                items={bllProducts}
+                selectedId={settings.baseProductId}
+                onSelect={(id) => setSettings(s => ({ ...s, baseProductId: id }))}
+              />
+              <div className="space-y-1.5 h-full flex flex-col">
+                 <div className="flex items-center gap-2">
+                    <Camera className="text-[#D32416] w-3 h-3" />
+                    <h3 className="font-bold text-[9px] uppercase tracking-[0.2em] text-stone-400">Aspect Ratio</h3>
+                 </div>
+                 <FormatSelector selectedId={selectedFormatId} onSelect={setSelectedFormatId} />
+              </div>
             </div>
 
-            {/* Step 4 Preview: Final Results */}
-            <motion.section
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="space-y-6 pt-8 border-t border-stone-100"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="text-[#D32416] w-5 h-5" />
-                  <h2 className="text-xl font-bold tracking-tight">4. Studio Resultaten</h2>
-                </div>
-              </div>
+            {/* Sectie 2: Prompt Area (Full Width) */}
+            <div className="space-y-1.5">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wand2 className="text-[#D32416] w-3 h-3" />
+                    <h3 className="font-bold text-[9px] uppercase tracking-[0.2em] text-stone-400">Beschrijf bewerking</h3>
+                  </div>
+                  <span className="text-[8px] text-stone-300 font-bold uppercase tracking-widest">
+                    {prompt.length} / 5k
+                  </span>
+               </div>
+               <div className="relative group">
+                  <div className="w-full bg-white border border-stone-100 rounded-[20px] p-3 text-[12px] font-medium text-stone-600 leading-relaxed shadow-sm transition-all focus-within:ring-2 focus-within:ring-[#D32416]/5">
+                    <p className="whitespace-pre-wrap">{prompt}</p>
+                    {prompt.length === 0 && <p className="text-stone-300 italic">Beschrijf hier je wensen...</p>}
+                  </div>
+               </div>
+            </div>
 
-              <PromptPreview 
-                prompt={prompt} 
-                settings={settings}
-                product={product}
-                library={fullLibrary}
-                format={selectedFormat}
-              />
-            </motion.section>
+            {/* Sectie 4: Instellingen */}
+            <div className="space-y-1.5">
+               <div className="flex items-center gap-2 text-stone-300">
+                  <Sliders className="w-3 h-3" />
+                  <h3 className="font-bold text-[9px] uppercase tracking-[0.2em]">Instellingen</h3>
+               </div>
+               <SettingsPanel
+                  settings={settings}
+                  onUpdate={setSettings}
+                  library={fullLibrary}
+                  selectedFormatId={selectedFormatId}
+                />
+            </div>
           </div>
 
-          {/* Right Sidebar: Settings (Always accessible) */}
-          <aside className="lg:sticky lg:top-28 space-y-8">
-            <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <SettingsPanel 
-                settings={settings} 
-                onUpdate={setSettings} 
-                library={fullLibrary}
-                selectedFormatId={selectedFormatId}
-              />
-            </motion.div>
-
-            {/* Mini Context Widget */}
-            <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100 space-y-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400">Design Context</h4>
-              <div className="aspect-square bg-white rounded-2xl border border-stone-200 overflow-hidden relative shadow-inner">
-                {product.previewUrl ? (
-                  <img 
-                    src={product.previewUrl} 
-                    alt="Current design" 
-                    className="w-full h-full object-contain p-4 grayscale opacity-30 group-hover:opacity-100 transition-opacity"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-stone-300 p-8 text-center">
-                    <ImageIcon className="w-8 h-8 opacity-20" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-stone-50/50 via-transparent to-transparent pointer-events-none" />
-                <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#D32416]" />
-                  <span className="text-[8px] font-black text-[#D32416] uppercase tracking-tighter">BLL THE LABEL</span>
-                </div>
+          {/* RECHTER KOLOM: RESULTAAT (Sticky) */}
+          <div className="lg:sticky lg:top-16 space-y-3">
+            <div className="bg-stone-50 rounded-[32px] border border-stone-200 p-5 min-h-[450px] flex flex-col shadow-xs">
+              <div className="flex items-center justify-between mb-3">
+                 <h2 className="text-base font-bold tracking-tight">Resultaat</h2>
+                 <div className="flex gap-1">
+                    {product.previewUrl && (
+                      <div className="w-5 h-5 rounded-full bg-white border border-stone-100 overflow-hidden">
+                        <img src={product.previewUrl} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="w-5 h-5 rounded-full bg-[#D32416] flex items-center justify-center text-white shadow-sm">
+                      <ImageIcon className="w-2.5 h-2.5" />
+                    </div>
+                 </div>
               </div>
-              <p className="text-[10px] text-stone-500 leading-relaxed italic">
-                Dit is de basisafbeelding die gebruikt wordt om het ontwerp over te nemen naar de AI generatie.
-              </p>
+
+              <div className="flex-1 bg-stone-100 rounded-[24px] overflow-hidden relative shadow-inner border border-stone-200 flex items-center justify-center min-h-[220px]">
+                 <PromptPreview
+                    prompt={prompt}
+                    settings={settings}
+                    product={product}
+                    library={fullLibrary}
+                    format={selectedFormat}
+                  />
+              </div>
+
+              <div className="mt-3 flex flex-col items-center justify-center text-stone-300">
+                 <div className="flex items-center gap-1">
+                    <span className="text-[7px] font-black uppercase tracking-widest bg-white/50 px-1 py-0.5 rounded border border-stone-100">{settings.resolution}</span>
+                    <span className="text-[7px] font-black uppercase tracking-widest bg-white/50 px-1 py-0.5 rounded border border-stone-100">{settings.modelType}</span>
+                 </div>
+              </div>
             </div>
-          </aside>
+
+            {/* Footer compact */}
+            <div className="px-4 flex items-center justify-between text-[9px] font-bold text-stone-300 uppercase tracking-widest">
+              <span>BLL Studio</span>
+              <span>© {new Date().getFullYear()}</span>
+            </div>
+          </div>
+
         </div>
       </main>
-
-      <footer className="border-t border-stone-100 py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-            <a href="#" className="hover:text-[#D32416] transition-colors">Bribi</a>
-            <a href="#" className="hover:text-[#D32416] transition-colors">Lobi</a>
-            <a href="#" className="hover:text-[#D32416] transition-colors">Libi</a>
-          </div>
-          <p className="text-xs text-stone-400 font-medium font-sans">
-            © {new Date().getFullYear()} BLL THE LABEL • Kleding als reminder, niet als hype
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

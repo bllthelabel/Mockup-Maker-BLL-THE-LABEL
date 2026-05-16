@@ -92,22 +92,8 @@ export default function PromptPreview({ prompt, settings, product, library, form
   };
 
   const checkApiKey = async (): Promise<boolean> => {
-    if (settings.provider !== 'google') return true;
-    
-    try {
-      const aistudio = (window as any).aistudio;
-      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-        const hasKey = await aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          if (typeof aistudio.openSelectKey === 'function') {
-            await aistudio.openSelectKey();
-          }
-          return false;
-        }
-      }
-    } catch (err) {
-      console.warn("Key selection check failed, proceeding anyway", err);
-    }
+    // In this environment, we trust the environment variable process.env.GEMINI_API_KEY
+    // which is used inside the aiService.
     return true;
   };
 
@@ -419,31 +405,7 @@ export default function PromptPreview({ prompt, settings, product, library, form
                       <X className="w-3 h-3" />
                       {error}
                     </span>
-                    {error.includes("billing") && (
-                      <a 
-                        href="https://ai.google.dev/gemini-api/docs/billing" 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="text-[#D32416] hover:underline flex items-center gap-1 mt-1"
-                      >
-                        <Info className="w-3 h-3" />
-                        Bekijk billing documentatie
-                      </a>
-                    )}
                   </p>
-                  {(error.includes("Toegang geweigerd") || error.includes("API Key")) && (
-                    <button
-                      onClick={async () => {
-                        const aistudio = (window as any).aistudio;
-                        if (aistudio && typeof aistudio.openSelectKey === 'function') {
-                          await aistudio.openSelectKey();
-                        }
-                      }}
-                      className="w-full py-3 px-4 bg-stone-100 hover:bg-stone-200 text-[#1A1A1A] rounded-xl text-xs font-bold transition-colors"
-                    >
-                      Selecteer API Key
-                    </button>
-                  )}
                 </div>
               )}
             </motion.div>
