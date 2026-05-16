@@ -4,16 +4,16 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Sparkles, Info } from 'lucide-react';
-import ProductUploader from './components/ProductUploader';
-import LibrarySelector from './components/LibrarySelector';
+import { motion, AnimatePresence } from 'motion/react';
+import { Sparkles, Info, Shirt, Camera, Sliders, Image as ImageIcon, CheckCircle2, ChevronRight } from 'lucide-react';
+import UnifiedProductSelector from './components/UnifiedProductSelector';
 import FormatSelector from './components/FormatSelector';
 import SettingsPanel from './components/SettingsPanel';
 import PromptPreview from './components/PromptPreview';
 import { generatePrompt } from './lib/generatePrompt';
 import { PHOTOGRAPHY_FORMATS, DEFAULT_SETTINGS, BASE_PRODUCTS } from './lib/constants';
 import { UploadedProduct, PromptSettings, LibraryProduct } from './types';
+import { cn } from './lib/utils';
 
 export default function App() {
   const [product, setProduct] = useState<UploadedProduct>({ file: null, previewUrl: null, mimeType: null });
@@ -56,7 +56,7 @@ export default function App() {
     const newId = `custom-${Date.now()}`;
     const newItem: LibraryProduct = {
       id: newId,
-      name: `Mijn Item ${userLibrary.length + 1}`,
+      name: `Design ${userLibrary.length + 1}`,
       imageUrl: product.previewUrl,
       description: "Zelf geüpload item",
       isCustom: true
@@ -88,75 +88,126 @@ export default function App() {
     }
   };
 
+  // Workflow steps logic
+  const steps = [
+    { id: 1, label: 'Product', icon: Shirt, active: true, completed: !!(product.previewUrl || settings.baseProductId) },
+    { id: 2, label: 'Format', icon: Camera, active: !!(product.previewUrl || settings.baseProductId), completed: !!selectedFormatId },
+    { id: 3, label: 'Instellingen', icon: Sliders, active: !!selectedFormatId, completed: true },
+    { id: 4, label: 'Genereren', icon: Sparkles, active: !!(product.previewUrl || settings.baseProductId), completed: false },
+  ];
+
+  const currentStep = steps.find(s => !s.completed)?.id || 4;
+
   return (
     <div className="min-h-screen bg-[#FDFDFC] text-[#1A1A1A] font-sans selection:bg-[#D32416]/10 selection:text-[#D32416]">
-      {/* Header */}
-      <header className="border-b border-stone-200 bg-white/80 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold tracking-tight text-[#1A1A1A] flex items-center gap-2">
-              BLL Photo Prompt Studio
+      {/* Step Indicator Header */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-none">
+          <div className="h-16 flex items-center justify-between min-w-[500px]">
+            <div className="flex items-center gap-1.5 mr-8">
+              <div className="w-8 h-8 bg-[#D32416] rounded-lg flex items-center justify-center text-white font-black text-sm shadow-sm ring-4 ring-[#D32416]/5">B</div>
+              <span className="font-bold tracking-tighter text-sm">PROMPT STUDIO</span>
+            </div>
+
+            <div className="flex items-center gap-8 flex-1 justify-center">
+              {steps.map((step, idx) => {
+                const Icon = step.icon;
+                const isCurrent = currentStep === step.id;
+                return (
+                  <div key={step.id} className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex items-center gap-2 group transition-all",
+                      isCurrent ? "text-[#1A1A1A]" : (step.completed ? "text-[#D32416]" : "text-stone-300")
+                    )}>
+                      <div className={cn(
+                        "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all",
+                        isCurrent ? "bg-[#1A1A1A] text-white" : (step.completed ? "bg-[#D32416] text-white" : "bg-stone-100 text-stone-400 group-hover:bg-stone-200")
+                      )}>
+                        {step.completed && !isCurrent ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.id}
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-black uppercase tracking-widest whitespace-nowrap",
+                        isCurrent ? "opacity-100" : "opacity-60"
+                      )}>{step.label}</span>
+                    </div>
+                    {idx < steps.length - 1 && <ChevronRight className="w-3 h-3 text-stone-200" />}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-3 ml-8">
               <span className="bg-[#D32416]/5 text-[#D32416] text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-[#D32416]/10">
-                Beta
+                Beta v2.0
               </span>
-            </h1>
-            <p className="text-xs text-stone-500 font-medium font-sans">
-              Genereer consistente productfoto prompts vanuit één productafbeelding
-            </p>
-          </div>
-          <div className="hidden md:flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-stone-400">
-            <span>Bribi</span>
-            <span className="text-[#D32416]/30">•</span>
-            <span>Lobi</span>
-            <span className="text-[#D32416]/30">•</span>
-            <span>Libi</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid lg:grid-cols-[440px_1fr] gap-16 items-start">
+      <main className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] xl:grid-cols-[1fr,440px] gap-8 xl:gap-16 items-start">
           
-          {/* Left Column: Input & Settings */}
-          <div className="space-y-16">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <ProductUploader 
-                product={product} 
-                onUpload={setProduct} 
-              />
-            </motion.div>
+          {/* Main Content Area */}
+          <div className="space-y-12 min-w-0">
+            {/* Step 1 & 2: Content Selection */}
+            <div className="grid md:grid-cols-2 gap-8 md:gap-12">
+              <motion.section
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn("transition-all duration-500", currentStep === 1 ? "opacity-100 scale-100" : "opacity-40 grayscale-[0.5]")}
+              >
+                <UnifiedProductSelector 
+                  product={product} 
+                  onUpload={setProduct} 
+                  library={fullLibrary}
+                  selectedBaseId={settings.baseProductId}
+                  onSelect={(id) => setSettings(s => ({ ...s, baseProductId: id }))}
+                  onSaveToLibrary={handleSaveToLibrary}
+                  onRemoveFromLibrary={handleRemoveFromLibrary}
+                />
+              </motion.section>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              <motion.section
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className={cn("transition-all duration-500", currentStep === 2 ? "opacity-100 scale-100" : "opacity-40 grayscale-[0.5]")}
+              >
+                <FormatSelector selectedId={selectedFormatId} onSelect={setSelectedFormatId} />
+              </motion.section>
+            </div>
+
+            {/* Step 4 Preview: Final Results */}
+            <motion.section
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              transition={{ delay: 0.3 }}
+              className="space-y-6 pt-8 border-t border-stone-100"
             >
-              <LibrarySelector 
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="text-[#D32416] w-5 h-5" />
+                  <h2 className="text-xl font-bold tracking-tight">4. Studio Resultaten</h2>
+                </div>
+              </div>
+
+              <PromptPreview 
+                prompt={prompt} 
+                settings={settings}
+                product={product}
                 library={fullLibrary}
-                selectedBaseId={settings.baseProductId}
-                currentProduct={product}
-                onSelect={(id) => setSettings(s => ({ ...s, baseProductId: id }))}
-                onSaveToLibrary={handleSaveToLibrary}
-                onRemoveFromLibrary={handleRemoveFromLibrary}
+                format={selectedFormat}
               />
-            </motion.div>
+            </motion.section>
+          </div>
 
+          {/* Right Sidebar: Settings (Always accessible) */}
+          <aside className="lg:sticky lg:top-28 space-y-8">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <FormatSelector selectedId={selectedFormatId} onSelect={setSelectedFormatId} />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
             >
               <SettingsPanel 
                 settings={settings} 
@@ -165,63 +216,44 @@ export default function App() {
                 selectedFormatId={selectedFormatId}
               />
             </motion.div>
-          </div>
 
-          {/* Right Column: Results & Preview */}
-          <div className="space-y-12 sticky top-32">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="space-y-8"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="text-[#D32416] w-5 h-5" />
-                <h2 className="text-2xl font-bold tracking-tight">Output</h2>
-              </div>
-
-              <div className="grid md:grid-cols-[1fr_2fr] gap-8">
-                {/* Visual Context */}
-                <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-stone-400 mb-4">Context</h3>
-                  <div className="aspect-[4/5] bg-stone-100 rounded-2xl border border-stone-200 overflow-hidden relative group">
-                    {product.previewUrl ? (
-                      <img 
-                        src={product.previewUrl} 
-                        alt="Context product" 
-                        className="w-full h-full object-cover grayscale opacity-50 contrast-125"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-stone-400 p-8 text-center bg-stone-50">
-                        <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                          Upload product om preview context te zien
-                        </p>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                    <div className="absolute bottom-4 left-4">
-                      <div className="text-[10px] text-white font-bold uppercase tracking-widest">BLL THE LABEL</div>
-                    </div>
+            {/* Mini Context Widget */}
+            <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100 space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400">Design Context</h4>
+              <div className="aspect-square bg-white rounded-2xl border border-stone-200 overflow-hidden relative shadow-inner">
+                {product.previewUrl ? (
+                  <img 
+                    src={product.previewUrl} 
+                    alt="Current design" 
+                    className="w-full h-full object-contain p-4 grayscale opacity-30 group-hover:opacity-100 transition-opacity"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-stone-300 p-8 text-center">
+                    <ImageIcon className="w-8 h-8 opacity-20" />
                   </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-50/50 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#D32416]" />
+                  <span className="text-[8px] font-black text-[#D32416] uppercase tracking-tighter">BLL THE LABEL</span>
                 </div>
-
-                {/* Prompt Output */}
-                <PromptPreview 
-                  prompt={prompt} 
-                  settings={settings}
-                  product={product}
-                  library={fullLibrary}
-                />
               </div>
-            </motion.div>
-          </div>
+              <p className="text-[10px] text-stone-500 leading-relaxed italic">
+                Dit is de basisafbeelding die gebruikt wordt om het ontwerp over te nemen naar de AI generatie.
+              </p>
+            </div>
+          </aside>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-stone-100 py-12 mt-20">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-xs text-stone-400 font-medium">
+      <footer className="border-t border-stone-100 py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
+            <a href="#" className="hover:text-[#D32416] transition-colors">Bribi</a>
+            <a href="#" className="hover:text-[#D32416] transition-colors">Lobi</a>
+            <a href="#" className="hover:text-[#D32416] transition-colors">Libi</a>
+          </div>
+          <p className="text-xs text-stone-400 font-medium font-sans">
             © {new Date().getFullYear()} BLL THE LABEL • Kleding als reminder, niet als hype
           </p>
         </div>

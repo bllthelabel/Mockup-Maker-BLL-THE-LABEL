@@ -21,6 +21,7 @@ export interface LibraryProduct {
 export interface PhotographyFormat {
   id: string;
   name: string;
+  icon?: string;
   description: string;
   basePrompt: string;
 }
@@ -29,6 +30,7 @@ export interface ColorOption {
   id: string;
   name: string;
   hex: string;
+  category?: string;
 }
 
 export type PrintTechnique = 'screenprint' | 'embroidery' | 'dtg' | 'puff print' | 'flock print' | 'none';
@@ -45,6 +47,7 @@ export interface PromptSettings {
   printTechnique?: PrintTechnique;
   designName?: string;
   provider: AIProvider;
+  variationIndex?: number;
 }
 
 export interface UploadedProduct {

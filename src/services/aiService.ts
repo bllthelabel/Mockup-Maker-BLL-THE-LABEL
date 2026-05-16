@@ -1,27 +1,100 @@
 import { GoogleGenAI } from "@google/genai";
-import { UploadedProduct, PromptSettings, GeneratedImage, LibraryProduct } from "../types";
-import { NEGATIVE_PROMPT, BASE_PRODUCTS } from "../lib/constants";
+import { UploadedProduct, PromptSettings, GeneratedImage, LibraryProduct, PhotographyFormat } from "../types";
+import { generateNegativePrompt } from "../lib/generatePrompt";
+
+async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      if (i === retries) throw e;
+      const waitTime = 1000 * (i + 1);
+      console.warn(`Attempt ${i + 1} failed, retrying in ${waitTime}ms...`, e.message);
+      await new Promise(r => setTimeout(r, waitTime));
+    }
+  }
+  throw new Error('unreachable');
+}
+
+async function resizeImageForAI(fileOrBlob: File | Blob, maxSize = 1024): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(fileOrBlob);
+    
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error("Failed to get canvas context"));
+        return;
+      }
+
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxSize) {
+          height *= maxSize / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width *= maxSize / height;
+          height = maxSize;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      const base64WithHeader = canvas.toDataURL('image/jpeg', 0.9);
+      const parts = base64WithHeader.split(',');
+      if (parts.length < 2) {
+        reject(new Error("Failed to encode image to base64"));
+        return;
+      }
+      const header = parts[0];
+      const base64 = parts[1];
+      const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+      
+      resolve({ base64, mimeType });
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image for resizing"));
+    };
+    
+    img.src = url;
+  });
+}
 
 export async function generateImage(
   prompt: string,
   settings: PromptSettings,
   product: UploadedProduct,
-  library: LibraryProduct[]
+  library: LibraryProduct[],
+  format: PhotographyFormat
 ): Promise<GeneratedImage> {
   const provider = settings.provider || 'google';
 
-  if (provider === 'google') {
-    return generateGeminiImage(prompt, settings, product, library);
-  } else {
-    return generateOpenAIImage(prompt, settings, product, library);
-  }
+  return withRetry(async () => {
+    if (provider === 'google') {
+      return generateGeminiImage(prompt, settings, product, library, format);
+    } else {
+      return generateOpenAIImage(prompt, settings, product, library, format);
+    }
+  });
 }
 
 async function generateGeminiImage(
   prompt: string,
   settings: PromptSettings,
   product: UploadedProduct,
-  library: LibraryProduct[]
+  library: LibraryProduct[],
+  format: PhotographyFormat
 ): Promise<GeneratedImage> {
   const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -37,15 +110,16 @@ async function generateGeminiImage(
   };
 
   const model = "gemini-3.1-flash-image-preview";
-  const fullPrompt = `${prompt}\n\nNEGATIVE CONSTRAINTS (MANDATORY):\n${NEGATIVE_PROMPT}`;
+  const negativePrompt = generateNegativePrompt(format);
+  const fullPrompt = `${prompt}\n\nNEGATIVE CONSTRAINTS (MANDATORY):\n${negativePrompt}`;
   const contentParts: any[] = [{ text: fullPrompt }];
 
-  if (product.file && product.mimeType) {
-    const base64Data = await fileToBase64(product.file);
+  if (product.file) {
+    const { base64, mimeType } = await resizeImageForAI(product.file, 1024);
     contentParts.push({
       inlineData: {
-        data: base64Data,
-        mimeType: product.mimeType
+        data: base64,
+        mimeType: mimeType
       }
     });
   }
@@ -57,11 +131,11 @@ async function generateGeminiImage(
         const resp = await fetch(libraryItem.imageUrl);
         if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
         const blob = await resp.blob();
-        const base64Data = await blobToBase64(blob);
+        const { base64, mimeType } = await resizeImageForAI(blob, 512); // Smaller for context
         contentParts.push({
           inlineData: {
-            data: base64Data,
-            mimeType: blob.type
+            data: base64,
+            mimeType: mimeType
           }
         });
       } catch (e: any) {
@@ -104,75 +178,58 @@ async function generateOpenAIImage(
   prompt: string,
   settings: PromptSettings,
   product: UploadedProduct,
-  library: LibraryProduct[]
+  library: LibraryProduct[],
+  format: PhotographyFormat
 ): Promise<GeneratedImage> {
   const formData = new FormData();
-  const fullPrompt = `${prompt}\n\nNEGATIVE CONSTRAINTS (MANDATORY):\n${NEGATIVE_PROMPT}`;
+  const negativePrompt = generateNegativePrompt(format);
+  const fullPrompt = `${prompt}\n\nNEGATIVE CONSTRAINTS (MANDATORY):\n${negativePrompt}`;
   formData.append('prompt', fullPrompt);
   formData.append('aspectRatio', settings.aspectRatio);
   
   if (product.file) {
+    // OpenAI images.edit requires specific sizes, but for DALL-E 3 (generative) we just use the prompt.
+    // However, if we're using the proxy which might handle resizing/conversion, we send the file.
     formData.append('image', product.file);
   }
 
-  try {
-    const response = await fetch('/api/openai/generate', {
-      method: 'POST',
-      body: formData
-    });
-
-    const contentType = response.headers.get('content-type');
-    if (!response.ok) {
-      if (contentType && contentType.includes('application/json')) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server Fout (${response.status})`);
-      } else {
-        const text = await response.text().catch(() => "Geen details");
-        console.error("Non-JSON error response:", text.substring(0, 500));
-        throw new Error(`Server Fout (${response.status}): De server stuurde een ongeldige response (HTML/Tekst). Controleer of de server correct is opgestart.`);
-      }
-    }
-
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text().catch(() => "Geen details");
-      console.error("Non-JSON success response:", text.substring(0, 500));
-      throw new Error("De server stuurde geen JSON terug. Controleer de server logs.");
-    }
-
-    const result = await response.json();
-    const imageData = result.data[0];
-    
-    if (imageData.b64_json) {
-      return {
-        url: `data:image/png;base64,${imageData.b64_json}`,
-        timestamp: Date.now()
-      };
-    } else if (imageData.url) {
-      return {
-        url: imageData.url,
-        timestamp: Date.now()
-      };
-    } else {
-      throw new Error("Geen afbeeldingsdata gevonden in OpenAI response");
-    }
-  } catch (error: any) {
-    console.error("OpenAI proxy error:", error);
-    throw new Error(`OpenAI Fout: ${error.message || "Onbekende fout"}`);
-  }
-}
-
-async function fileToBase64(file: File): Promise<string> {
-  return blobToBase64(file);
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onload = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      resolve(base64String);
-    };
-    reader.onerror = error => reject(error);
+  const response = await fetch('/api/openai/generate', {
+    method: 'POST',
+    body: formData
   });
+
+  const contentType = response.headers.get('content-type');
+  if (!response.ok) {
+    if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server Fout (${response.status})`);
+    } else {
+      const text = await response.text().catch(() => "Geen details");
+      console.error("Non-JSON error response:", text.substring(0, 500));
+      throw new Error(`Server Fout (${response.status}): De server stuurde een ongeldige response (HTML/Tekst). Controleer of de server correct is opgestart.`);
+    }
+  }
+
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text().catch(() => "Geen details");
+    console.error("Non-JSON success response:", text.substring(0, 500));
+    throw new Error("De server stuurde geen JSON terug. Controleer de server logs.");
+  }
+
+  const result = await response.json();
+  const imageData = result.data[0];
+  
+  if (imageData.b64_json) {
+    return {
+      url: `data:image/png;base64,${imageData.b64_json}`,
+      timestamp: Date.now()
+    };
+  } else if (imageData.url) {
+    return {
+      url: imageData.url,
+      timestamp: Date.now()
+    };
+  } else {
+    throw new Error("Geen afbeeldingsdata gevonden in OpenAI response");
+  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "BLL Photo Prompt Studio",
-  "description": "Generate consistent product photo prompts for BLL THE LABEL based on product images.",
+  "description": "Geavanceerde studio voor het genereren van consistente productfoto's en prompts voor BLL THE LABEL.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

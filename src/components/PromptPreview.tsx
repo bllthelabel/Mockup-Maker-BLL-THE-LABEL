@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { NEGATIVE_PROMPT, PHOTOGRAPHY_FORMATS } from '../lib/constants';
 import { generateImage } from '../services/aiService';
 import { generatePrompt } from '../lib/generatePrompt';
-import { PromptSettings, UploadedProduct, GeneratedImage, LibraryProduct } from '../types';
+import { PhotographyFormat, PromptSettings, UploadedProduct, GeneratedImage, LibraryProduct } from '../types';
 
 interface Props {
   prompt: string;
   settings: PromptSettings;
   product: UploadedProduct;
   library: LibraryProduct[];
+  format: PhotographyFormat;
 }
 
 interface FormatStatus {
@@ -20,15 +21,46 @@ interface FormatStatus {
   isLoading: boolean;
 }
 
-export default function PromptPreview({ prompt, settings, product, library }: Props) {
+export default function PromptPreview({ prompt, settings, product, library, format }: Props) {
   const [copied, setCopied] = useState<'main' | 'negative' | 'full' | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImg, setGeneratedImg] = useState<GeneratedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [history, setHistory] = useState<{ image: GeneratedImage; settings: PromptSettings; formatName: string }[]>(() => {
+    try {
+      const saved = localStorage.getItem('bll_generation_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
 
-  // Batch generation state
+  const saveToHistory = (image: GeneratedImage, currentSettings: PromptSettings, formatName: string) => {
+    const newItem = { image, settings: currentSettings, formatName };
+    setHistory(prev => {
+      const next = [newItem, ...prev].slice(0, 10);
+      try {
+        localStorage.setItem('bll_generation_history', JSON.stringify(next));
+      } catch (e) {
+        console.warn('Failed to save history to localStorage', e);
+      }
+      return next;
+    });
+  };
+
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+
+  useEffect(() => {
+    let interval: any;
+    if (isGenerating || isGeneratingAll) {
+      setElapsed(0);
+      interval = setInterval(() => setElapsed(e => e + 1), 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isGenerating, isGeneratingAll]);
+
   const [allFormats, setAllFormats] = useState<Record<string, FormatStatus>>(() => {
     const initial: Record<string, FormatStatus> = {};
     PHOTOGRAPHY_FORMATS.forEach(f => {
@@ -36,6 +68,9 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
     });
     return initial;
   });
+
+  const selectedProduct = settings.baseProductId ? library.find(p => p.id === settings.baseProductId) : null;
+
   const [previewAllImg, setPreviewAllImg] = useState<{ url: string; name: string } | null>(null);
 
   // Close preview on escape key
@@ -113,8 +148,9 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
     setIsGenerating(true);
     setError(null);
     try {
-      const result = await generateImage(prompt, settings, product, library);
+      const result = await generateImage(prompt, settings, product, library, format);
       setGeneratedImg(result);
+      saveToHistory(result, settings, format.name);
     } catch (err: any) {
       setError(parseError(err, settings.provider));
     } finally {
@@ -149,7 +185,9 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
         if (index > 0) await new Promise(resolve => setTimeout(resolve, index * 600));
         
         const formatPrompt = generatePrompt(format, settings, library);
-        return { formatId: format.id, image: await generateImage(formatPrompt, settings, product, library) };
+        const img = await generateImage(formatPrompt, settings, product, library, format);
+        saveToHistory(img, settings, format.name);
+        return { formatId: format.id, image: img };
       })
     );
 
@@ -172,6 +210,32 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
 
     setAllFormats(finalBatchState);
     setIsGeneratingAll(false);
+  };
+
+  const handleGenerateVariations = async () => {
+    if (!product.file && !settings.baseProductId) {
+      setError("Upload eerst een productafbeelding.");
+      return;
+    }
+    
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const format = PHOTOGRAPHY_FORMATS.find(f => prompt.includes(f.name.toUpperCase())) || PHOTOGRAPHY_FORMATS[0];
+      const promises = [0, 1, 2].map(i => {
+        const varSettings = { ...settings, variationIndex: i };
+        const varPrompt = generatePrompt(format, varSettings, library);
+        return generateImage(varPrompt, varSettings, product, library, format);
+      });
+      
+      const results = await Promise.all(promises);
+      setGeneratedImg(results[0]); // Show the first one as main
+      results.forEach(img => saveToHistory(img, settings, format.name));
+    } catch (err: any) {
+      setError(parseError(err, settings.provider));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const resetAndRetry = () => {
@@ -261,12 +325,22 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
                   </button>
                 </div>
               </div>
-              <button 
-                onClick={() => setGeneratedImg(null)}
-                className="text-xs font-bold text-[#D32416] hover:underline"
-              >
-                Opnieuw genereren
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handleGenerate()}
+                  disabled={isGenerating}
+                  className="flex-1 py-3 bg-[#1A1A1A] text-white rounded-xl text-xs font-bold hover:bg-[#D32416] transition-all flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Opnieuw genereren
+                </button>
+                <button 
+                  onClick={() => setGeneratedImg(null)}
+                  className="px-4 py-3 bg-stone-100 text-stone-600 rounded-xl text-xs font-bold hover:bg-stone-200 transition-all"
+                >
+                  Nieuwe opzet
+                </button>
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -274,30 +348,70 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
               animate={{ opacity: 1 }}
               className="space-y-6"
             >
-              <button 
-                onClick={handleGenerate}
-                disabled={isGenerating || (!product.file && !settings.baseProductId)}
-                className="w-full relative group overflow-hidden py-8 px-6 bg-stone-50 border-2 border-dashed border-stone-200 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all hover:border-[#D32416]/20 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-8 h-8 text-[#D32416] animate-spin" />
-                    <span className="text-sm font-bold text-stone-600 animate-pulse">Foto wordt ontwikkeld...</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-stone-100 flex items-center justify-center text-[#D32416] group-hover:scale-110 transition-transform">
-                      <Sparkles className="w-6 h-6" />
+              <div className="bg-stone-50/50 p-4 rounded-2xl border border-stone-100 space-y-3 font-sans">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Te genereren output</h4>
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-[8px] font-bold text-stone-400 tracking-tighter uppercase">Ready</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-y-3 gap-x-6">
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] uppercase font-bold text-stone-300">Product</span>
+                    <p className="text-[10px] font-bold text-[#1A1A1A] truncate">{selectedProduct?.name || 'Eigen upload'}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] uppercase font-bold text-stone-300">Format</span>
+                    <p className="text-[10px] font-bold text-[#1A1A1A] truncate">{format.name}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] uppercase font-bold text-stone-300">Model</span>
+                    <p className="text-[10px] font-bold text-[#1A1A1A] capitalize">{settings.modelType}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] uppercase font-bold text-stone-300">Kwaliteit</span>
+                    <p className="text-[10px] font-bold text-[#1A1A1A]">{settings.resolution} ({settings.aspectRatio})</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={handleGenerate}
+                  disabled={isGenerating || (!product.file && !settings.baseProductId)}
+                  className="w-full relative group overflow-hidden py-10 px-6 bg-[#1A1A1A] text-white rounded-3xl flex flex-col items-center justify-center gap-4 transition-all hover:bg-[#D32416] shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                >
+                  {isGenerating ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      <span className="text-sm font-bold text-white/80 animate-pulse">Ontwikkelen... {elapsed}s</span>
                     </div>
-                    <div className="text-center">
-                      <span className="block text-sm font-bold text-[#1A1A1A]">Genereer Foto</span>
-                      <span className="block text-[10px] text-stone-400 uppercase tracking-widest mt-1">
-                        {(product.file || settings.baseProductId) ? `${settings.resolution} Ready` : 'Kies content'}
-                      </span>
-                    </div>
-                  </>
+                  ) : (
+                    <>
+                      <div className="w-14 h-14 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-inner">
+                        <Sparkles className="w-8 h-8" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <span className="block text-base font-bold tracking-tight">Genereer Foto</span>
+                        <span className="block text-[10px] text-white/40 uppercase tracking-[0.2em] font-medium">
+                          {(product.file || settings.baseProductId) ? `${settings.resolution} Ready` : 'Configureer eerst'}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </button>
+
+                {!isGenerating && (product.file || settings.baseProductId) && (
+                  <button 
+                    onClick={handleGenerateVariations}
+                    className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-[#1A1A1A] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#D32416]" />
+                    Genereer 3 Variaties
+                  </button>
                 )}
-              </button>
+              </div>
               {error && (
                 <div className="space-y-3">
                   <p className="text-xs text-red-500 font-medium bg-red-50 p-4 rounded-xl border border-red-100 flex flex-col gap-2">
@@ -427,6 +541,34 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
           </div>
         )}
       </section>
+
+      {/* Session History */}
+      {history.length > 0 && (
+        <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A]">Recente Generaties</h3>
+            <button 
+              onClick={() => { setHistory([]); localStorage.removeItem('bll_generation_history'); }}
+              className="text-[10px] font-bold text-stone-400 hover:text-[#D32416] uppercase tracking-widest"
+            >
+              Wis geschiedenis
+            </button>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {history.map((item, i) => (
+              <button
+                key={i}
+                onClick={() => setGeneratedImg(item.image)}
+                className="relative aspect-square rounded-lg overflow-hidden border border-stone-100 hover:border-[#D32416] transition-all group"
+                title={`${item.formatName} - ${new Date(item.image.timestamp).toLocaleTimeString()}`}
+              >
+                <img src={item.image.url} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Main Prompt */}
       <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-4">
