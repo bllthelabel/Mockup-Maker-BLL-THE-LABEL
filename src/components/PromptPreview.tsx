@@ -1,11 +1,13 @@
 
-import { Copy, Check, Info, Sparkles, Loader2, Download, Maximize2, X, Trash2 } from 'lucide-react';
+import { Copy, Check, Info, Sparkles, Loader2, Download, Maximize2, X, Trash2, Zap, History, Layers, Image as ImageIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NEGATIVE_PROMPT, PHOTOGRAPHY_FORMATS } from '../lib/constants';
 import { generateImage } from '../services/aiService';
 import { generatePrompt } from '../lib/generatePrompt';
 import { PhotographyFormat, PromptSettings, UploadedProduct, GeneratedImage, LibraryProduct } from '../types';
+import { Button, Badge, Card, CardHeader, CardContent, Divider } from './ui';
+import { cn } from '../lib/utils';
 
 interface Props {
   prompt: string;
@@ -34,6 +36,8 @@ export default function PromptPreview({ prompt, settings, product, library, form
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+
+  const [activeView, setActiveView] = useState<'latest' | 'history' | 'batch'>('latest');
 
   const saveToHistory = (image: GeneratedImage, currentSettings: PromptSettings, formatName: string) => {
     const newItem = { image, settings: currentSettings, formatName };
@@ -69,17 +73,9 @@ export default function PromptPreview({ prompt, settings, product, library, form
     return initial;
   });
 
-  const selectedProduct = settings.baseProductId ? library.find(p => p.id === settings.baseProductId) : null;
-
-  const [previewAllImg, setPreviewAllImg] = useState<{ url: string; name: string } | null>(null);
-
-  // Close preview on escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsPreviewOpen(false);
-        setPreviewAllImg(null);
-      }
+      if (e.key === 'Escape') setIsPreviewOpen(false);
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -91,48 +87,22 @@ export default function PromptPreview({ prompt, settings, product, library, form
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const checkApiKey = async (): Promise<boolean> => {
-    // In this environment, we trust the environment variable process.env.GEMINI_API_KEY
-    // which is used inside the aiService.
-    return true;
-  };
-
   const parseError = (err: any, provider: 'google' | 'openai'): string => {
     console.error("Generation error:", err);
     let errorMsg = err.message || "";
-    
-    if (errorMsg.includes("<html>") || errorMsg.includes("502") || errorMsg.includes("Bad Gateway")) {
-      return "De server is tijdelijk onbereikbaar (502). Probeer het over enkele ogenblikken opnieuw.";
-    }
-
-    if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("PERMISSION_DENIED") || errorMsg.includes("403")) {
-      if (provider === 'google') {
-        return "Toegang geweigerd of model niet beschikbaar. Dit model (Gemini 3.1) vereist een API-sleutel van een Google Cloud-project met facturering (billing) ingeschakeld.";
-      } else {
-        return "Toegang geweigerd voor OpenAI. Controleer je OpenAI API key.";
-      }
-    }
-    
-    if (errorMsg.includes("quota") || errorMsg.includes("limit")) {
-      return `Je hebt je quota bereikt voor de ${provider === 'google' ? 'Gemini' : 'OpenAI'} API.`;
-    }
-    
-    return errorMsg || "Er is iets misgegaan bij het genereren.";
+    if (errorMsg.includes("<html>") || errorMsg.includes("502") || errorMsg.includes("Bad Gateway")) return "Server onbereikbaar (502).";
+    if (errorMsg.includes("quota") || errorMsg.includes("limit")) return "Quota bereikt.";
+    return errorMsg.slice(0, 100) || "Generatie mislukt.";
   };
 
   const handleGenerate = async () => {
     if (!product.file && !settings.baseProductId) {
-      setError("Upload eerst een productafbeelding of kies een basisproduct uit de bibliotheek.");
+      setError("Selecteer eerst een ontwerp.");
       return;
     }
-
-    if (!(await checkApiKey())) {
-      setError("Voor HD, 2K en 4K generatie is een eigen Gemini API Key vereist.");
-      return;
-    }
-    
     setIsGenerating(true);
     setError(null);
+    setActiveView('latest');
     try {
       const result = await generateImage(prompt, settings, product, library, format);
       setGeneratedImg(result);
@@ -144,548 +114,141 @@ export default function PromptPreview({ prompt, settings, product, library, form
     }
   };
 
-  const handleGenerateAll = async () => {
-    if (!product.file && !settings.baseProductId) {
-      setError("Upload eerst een productafbeelding of kies een basisproduct uit de bibliotheek.");
-      return;
-    }
-
-    if (!(await checkApiKey())) {
-      setError("Voor HD, 2K en 4K generatie is een eigen Gemini API Key vereist.");
-      return;
-    }
-
-    setIsGeneratingAll(true);
-    setError(null);
-
-    // Initial state: all loading
-    const initialBatchState: typeof allFormats = {};
-    PHOTOGRAPHY_FORMATS.forEach(format => {
-      initialBatchState[format.id] = { image: null, error: null, isLoading: true };
-    });
-    setAllFormats(initialBatchState);
-
-    const results = await Promise.allSettled(
-      PHOTOGRAPHY_FORMATS.map(async (format, index) => {
-        // Staggered delay to improve consistency per format (avoids identical simultaneous requests)
-        if (index > 0) await new Promise(resolve => setTimeout(resolve, index * 600));
-        
-        const formatPrompt = generatePrompt(format, settings, library);
-        const img = await generateImage(formatPrompt, settings, product, library, format);
-        saveToHistory(img, settings, format.name);
-        return { formatId: format.id, image: img };
-      })
-    );
-
-    const finalBatchState = { ...initialBatchState };
-    results.forEach((res) => {
-      if (res.status === 'fulfilled') {
-        finalBatchState[res.value.formatId] = { image: res.value.image, error: null, isLoading: false };
-      } else {
-        // Find which format failed
-        const formatId = PHOTOGRAPHY_FORMATS.find((_, i) => results[i] === res)?.id;
-        if (formatId) {
-          finalBatchState[formatId] = { 
-            image: null, 
-            error: parseError(res.reason, settings.provider), 
-            isLoading: false 
-          };
-        }
-      }
-    });
-
-    setAllFormats(finalBatchState);
-    setIsGeneratingAll(false);
-  };
-
-  const handleGenerateVariations = async () => {
-    if (!product.file && !settings.baseProductId) {
-      setError("Upload eerst een productafbeelding.");
-      return;
-    }
-    
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const format = PHOTOGRAPHY_FORMATS.find(f => prompt.includes(f.name.toUpperCase())) || PHOTOGRAPHY_FORMATS[0];
-      const promises = [0, 1, 2].map(i => {
-        const varSettings = { ...settings, variationIndex: i };
-        const varPrompt = generatePrompt(format, varSettings, library);
-        return generateImage(varPrompt, varSettings, product, library, format);
-      });
-      
-      const results = await Promise.all(promises);
-      setGeneratedImg(results[0]); // Show the first one as main
-      results.forEach(img => saveToHistory(img, settings, format.name));
-    } catch (err: any) {
-      setError(parseError(err, settings.provider));
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const resetAndRetry = () => {
-    setGeneratedImg(null);
-    setError(null);
-    handleGenerate();
-  };
-
   const downloadImage = (url?: string, label?: string) => {
     const finalUrl = url || generatedImg?.url;
     if (!finalUrl) return;
-    
-    const selectedProduct = settings.baseProductId ? library.find(p => p.id === settings.baseProductId) : null;
-    const productName = selectedProduct ? selectedProduct.name.replace(/\s+/g, '-') : 'Unknown-Product';
-    const colorName = settings.color ? settings.color.replace(/\s+/g, '-') : 'Original';
-    const designName = settings.designName ? settings.designName.trim().replace(/\s+/g, '-') : 'Design';
-    const formatLabel = label ? `-${label.replace(/\s+/g, '-')}` : '';
-    
-    const filename = `BLL-THE-LABEL-${designName}-${productName}-${colorName}${formatLabel}-${Date.now()}.png`;
-    
+    const filename = `BLL-${settings.designName || 'DESIGN'}-${Date.now()}.png`;
     const link = document.createElement('a');
     link.href = finalUrl;
     link.download = filename;
     link.click();
   };
 
-  const downloadAllFormats = () => {
-    Object.entries(allFormats).forEach(([id, data]) => {
-      const status = data as FormatStatus;
-      if (status.image) {
-        const format = PHOTOGRAPHY_FORMATS.find(f => f.id === id);
-        downloadImage(status.image.url, format?.name || id);
-      }
-    });
-  };
-
-  const clearAllFormats = () => {
-    const cleared: Record<string, FormatStatus> = {};
-    PHOTOGRAPHY_FORMATS.forEach(f => {
-      cleared[f.id] = { image: null, error: null, isLoading: false };
-    });
-    setAllFormats(cleared);
-  };
-
   return (
-    <div className="space-y-6" id="prompt-preview-container">
-      {/* Visual Generation Section */}
-      <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-6 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A]">Direct Genereren</h3>
-          <div className="text-[10px] bg-stone-100 px-2 py-1 rounded font-bold text-stone-500">
-            {settings.resolution} Kwaliteit
-          </div>
-        </div>
-
-        <AnimatePresence mode="wait">
-          {generatedImg ? (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-4"
-            >
-              <div 
-                onClick={() => setIsPreviewOpen(true)}
-                className="relative aspect-square rounded-2xl overflow-hidden bg-stone-50 border border-stone-100 group cursor-zoom-in"
-              >
-                <img 
-                  src={generatedImg.url} 
-                  alt="Gegenereerd product" 
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); downloadImage(); }}
-                    className="p-3 bg-white rounded-full text-[#1A1A1A] hover:bg-[#D32416] hover:text-white transition-all transform hover:scale-110"
-                    title="Download afbeelding"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setIsPreviewOpen(true); }}
-                    className="p-3 bg-white rounded-full text-[#1A1A1A] hover:bg-[#D32416] hover:text-white transition-all transform hover:scale-110"
-                    title="Vergroot bekijken"
-                  >
-                    <Maximize2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => handleGenerate()}
-                  disabled={isGenerating}
-                  className="flex-1 py-3 bg-[#1A1A1A] text-white rounded-xl text-xs font-bold hover:bg-[#D32416] transition-all flex items-center justify-center gap-2"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Opnieuw genereren
-                </button>
-                <button 
-                  onClick={() => setGeneratedImg(null)}
-                  className="px-4 py-3 bg-stone-100 text-stone-600 rounded-xl text-xs font-bold hover:bg-stone-200 transition-all"
-                >
-                  Nieuwe opzet
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="space-y-6"
-            >
-              <div className="bg-stone-50/50 p-4 rounded-2xl border border-stone-100 space-y-3 font-sans">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Te genereren output</h4>
-                  <div className="flex gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[8px] font-bold text-stone-400 tracking-tighter uppercase">Ready</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-y-3 gap-x-6">
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] uppercase font-bold text-stone-300">Product</span>
-                    <p className="text-[10px] font-bold text-[#1A1A1A] truncate">{selectedProduct?.name || 'Eigen upload'}</p>
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] uppercase font-bold text-stone-300">Format</span>
-                    <p className="text-[10px] font-bold text-[#1A1A1A] truncate">{format.name}</p>
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] uppercase font-bold text-stone-300">Model</span>
-                    <p className="text-[10px] font-bold text-[#1A1A1A] capitalize">{settings.modelType}</p>
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] uppercase font-bold text-stone-300">Kwaliteit</span>
-                    <p className="text-[10px] font-bold text-[#1A1A1A]">{settings.resolution} ({settings.aspectRatio})</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={handleGenerate}
-                  disabled={isGenerating || (!product.file && !settings.baseProductId)}
-                  className="w-full relative group overflow-hidden py-10 px-6 bg-[#1A1A1A] text-white rounded-3xl flex flex-col items-center justify-center gap-4 transition-all hover:bg-[#D32416] shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                >
-                  {isGenerating ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                      <span className="text-sm font-bold text-white/80 animate-pulse">Ontwikkelen... {elapsed}s</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="w-14 h-14 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-inner">
-                        <Sparkles className="w-8 h-8" />
-                      </div>
-                      <div className="text-center space-y-1">
-                        <span className="block text-base font-bold tracking-tight">Genereer Foto</span>
-                        <span className="block text-[10px] text-white/40 uppercase tracking-[0.2em] font-medium">
-                          {(product.file || settings.baseProductId) ? `${settings.resolution} Ready` : 'Configureer eerst'}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </button>
-
-                {!isGenerating && (product.file || settings.baseProductId) && (
-                  <button 
-                    onClick={handleGenerateVariations}
-                    className="w-full py-3 bg-stone-100 hover:bg-stone-200 text-[#1A1A1A] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-[#D32416]" />
-                    Genereer 3 Variaties
-                  </button>
-                )}
-              </div>
-              {error && (
-                <div className="space-y-3">
-                  <p className="text-xs text-red-500 font-medium bg-red-50 p-4 rounded-xl border border-red-100 flex flex-col gap-2">
-                    <span className="flex items-center gap-2">
-                      <X className="w-3 h-3" />
-                      {error}
-                    </span>
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
-
-      {/* 5 Formats Batch Generation Section */}
-      <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A]">Alle {PHOTOGRAPHY_FORMATS.length} Formats</h3>
-          {(Object.values(allFormats) as FormatStatus[]).some(f => f.image) && !isGeneratingAll && (
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={downloadAllFormats}
-                className="text-xs font-bold text-[#D32416] flex items-center gap-2 hover:underline"
-              >
-                <Download className="w-3 h-3" />
-                Alles downloaden
-              </button>
-              <button 
-                onClick={clearAllFormats}
-                className="text-xs font-bold text-stone-400 flex items-center gap-2 hover:text-[#D32416]"
-              >
-                <Trash2 className="w-3 h-3" />
-                Wis
-              </button>
-            </div>
-          )}
-        </div>
-
-        {(Object.values(allFormats) as FormatStatus[]).every(f => !f.image && !f.isLoading && !f.error) ? (
-          <button 
-            onClick={handleGenerateAll}
-            disabled={isGeneratingAll || (!product.file && !settings.baseProductId)}
-            className="w-full py-10 px-6 bg-stone-50 border-2 border-dashed border-stone-200 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all hover:border-[#D32416]/20 hover:bg-white disabled:opacity-50"
-          >
-            <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-stone-100 flex items-center justify-center text-[#D32416]">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div className="text-center">
-              <span className="block text-sm font-bold text-[#1A1A1A]">Genereer Alle {PHOTOGRAPHY_FORMATS.length} Formats</span>
-              <span className="block text-[10px] text-stone-400 uppercase tracking-widest mt-1">
-                Momenten · Detail · Portret · Flatlay · Ghost
-              </span>
-            </div>
-          </button>
-        ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {PHOTOGRAPHY_FORMATS.map((format) => {
-              const data = allFormats[format.id];
-              return (
-                <div key={format.id} className="space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">{format.name}</span>
-                  </div>
-                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-stone-50 border border-stone-100 group">
-                    {data.isLoading ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="w-5 h-5 text-[#D32416] animate-spin" />
-                        <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest">Laden...</span>
-                      </div>
-                    ) : data.error ? (
-                      <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
-                        <p className="text-[9px] text-red-400 font-medium leading-tight">{data.error}</p>
-                      </div>
-                    ) : data.image ? (
-                      <>
-                        <img 
-                          src={data.image.url} 
-                          alt={format.name} 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button 
-                            onClick={() => downloadImage(data.image?.url, format.name)}
-                            className="p-2 bg-white rounded-full text-[#1A1A1A] hover:bg-[#D32416] hover:text-white transition-all transform hover:scale-110"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => setPreviewAllImg({ url: data.image!.url, name: format.name })}
-                            className="p-2 bg-white rounded-full text-[#1A1A1A] hover:bg-[#D32416] hover:text-white transition-all transform hover:scale-110"
-                          >
-                            <Maximize2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Session History */}
-      {history.length > 0 && (
-        <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A]">Recente Generaties</h3>
-            <button 
-              onClick={() => { setHistory([]); localStorage.removeItem('bll_generation_history'); }}
-              className="text-[10px] font-bold text-stone-400 hover:text-[#D32416] uppercase tracking-widest"
-            >
-              Wis geschiedenis
-            </button>
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {history.map((item, i) => (
-              <button
-                key={i}
-                onClick={() => setGeneratedImg(item.image)}
-                className="relative aspect-square rounded-lg overflow-hidden border border-stone-100 hover:border-[#D32416] transition-all group"
-                title={`${item.formatName} - ${new Date(item.image.timestamp).toLocaleTimeString()}`}
-              >
-                <img src={item.image.url} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Main Prompt */}
-      <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-[#1A1A1A]">AI Prompt</h3>
-          <button 
-            onClick={() => copy(prompt, 'main')}
-            className="flex items-center gap-2 text-xs font-medium text-stone-500 hover:text-[#D32416] transition-colors"
-          >
-            {copied === 'main' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied === 'main' ? 'Gekopieerd' : 'Kopieer prompt'}
-          </button>
-        </div>
-        <div className="bg-stone-50 p-4 rounded-xl text-sm leading-relaxed text-stone-700 italic border border-stone-100/50 min-h-[120px]">
-          {prompt}
-        </div>
-      </section>
-
-      {/* Negative Prompt */}
-      <section className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm space-y-4 opacity-80">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-stone-400">Negative Prompt</h3>
-          <button 
-            onClick={() => copy(NEGATIVE_PROMPT, 'negative')}
-            className="flex items-center gap-2 text-xs font-medium text-stone-500 hover:text-[#D32416] transition-colors"
-          >
-            {copied === 'negative' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied === 'negative' ? 'Gekopieerd' : 'Kopieer'}
-          </button>
-        </div>
-        <div className="bg-stone-50 p-4 rounded-xl text-xs leading-relaxed text-stone-500 border border-stone-100/50">
-          {NEGATIVE_PROMPT}
-        </div>
-      </section>
-
-      {/* Full Combo Button */}
-      <button 
-        onClick={() => copy(`${prompt}\n\nNegative Prompt:\n${NEGATIVE_PROMPT}`, 'full')}
-        className="w-full py-4 bg-[#1A1A1A] text-white rounded-2xl font-bold hover:bg-[#D32416] transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-      >
-        {copied === 'full' ? <Check className="w-5 h-5 text-white" /> : <Copy className="w-5 h-5" />}
-        {copied === 'full' ? 'Alles gekopieerd!' : 'Kopieer volledige prompt combo'}
-      </button>
-
-      {/* Tip */}
-      <div className="flex items-start gap-4 p-5 bg-[#FDFDFC] rounded-2xl border border-stone-100 border-l-4 border-l-[#D32416]">
-        <Info className="w-5 h-5 text-[#D32416] mt-0.5 shrink-0" />
-        <p className="text-xs text-stone-600 leading-relaxed">
-          <span className="font-bold text-[#1A1A1A]">Tip:</span> upload eerst je productafbeelding, kies daarna een vast format. Zo blijft je merk herkenbaar, maar voelt elke foto toch anders.
-        </p>
-      </div>
-      {/* Full-screen Image Preview Overlay */}
-      <AnimatePresence>
-        {isPreviewOpen && generatedImg && (
-          <motion.div
+    <div className="w-full h-full flex flex-col items-center justify-center relative bg-zinc-50">
+      <AnimatePresence mode="wait">
+        {isGenerating ? (
+          <motion.div 
+            key="loading"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1A1A]/95 p-4 sm:p-10 backdrop-blur-sm"
-            onClick={() => setIsPreviewOpen(false)}
+            className="flex flex-col items-center gap-3"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative max-w-full max-h-full flex items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => setIsPreviewOpen(false)}
-                className="absolute -top-12 sm:-top-16 right-0 text-white/60 hover:text-white transition-colors p-2"
-              >
-                <X className="w-8 h-8" />
-              </button>
-
-              <div className="absolute -top-12 sm:-top-16 left-0 flex items-center gap-4">
-                <button
-                  onClick={downloadImage}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold transition-all backdrop-blur-md border border-white/10"
-                >
-                  <Download className="w-4 h-4" />
-                  Download
-                </button>
+            <div className="relative">
+              <Loader2 className="w-10 h-10 text-accent animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-1 h-1 bg-accent rounded-full animate-ping" />
               </div>
-
-              <img
-                src={generatedImg.url}
-                alt="Product Preview Full"
-                className="max-w-full max-h-[80vh] sm:max-h-[85vh] object-contain rounded-lg shadow-2xl"
-                referrerPolicy="no-referrer"
-              />
-              
-              <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center w-full">
-                <p className="text-white/40 text-[10px] uppercase tracking-widest font-bold">
-                  {settings.designName || 'BLL-DESIGN'} • {settings.resolution}
-                </p>
-                <p className="text-white/20 text-[8px] mt-2">
-                  Druk op ESC om te sluiten
-                </p>
-              </div>
-            </motion.div>
+            </div>
+            <div className="text-center">
+              <p className="text-xs font-bold text-text-primary uppercase tracking-widest">Ontwikkelen...</p>
+              <p className="text-[10px] text-text-tertiary font-mono mt-1">{elapsed}s verstreken</p>
+            </div>
           </motion.div>
+        ) : error ? (
+          <motion.div 
+            key="error"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-6 text-center"
+          >
+            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
+              <X className="w-5 h-5 text-red-500" />
+            </div>
+            <p className="text-sm font-semibold text-text-primary">Oeps!</p>
+            <p className="text-xs text-text-tertiary mt-1 mb-4">{error}</p>
+            <Button variant="secondary" size="sm" onClick={handleGenerate}>Probeer opnieuw</Button>
+          </motion.div>
+        ) : generatedImg ? (
+          <motion.div 
+            key="result"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="w-full h-full group"
+          >
+            <img 
+              src={generatedImg.url} 
+              className="w-full h-full object-cover cursor-zoom-in" 
+              onClick={() => setIsPreviewOpen(true)}
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+              <Button size="sm" variant="secondary" className="h-8 w-8 p-0 rounded-full shadow-lg" onClick={() => downloadImage()}>
+                <Download className="w-3.5 h-3.5" />
+              </Button>
+              <Button size="sm" variant="secondary" className="h-8 w-8 p-0 rounded-full shadow-lg" onClick={() => setIsPreviewOpen(true)}>
+                <Maximize2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-surface border border-border-strong/10 shadow-sm flex items-center justify-center text-text-tertiary">
+              <ImageIcon className="w-8 h-8 opacity-20" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-secondary">Wachtend op input</p>
+              <p className="text-xs text-text-tertiary mt-1">Configureer je stijl en druk op genereer</p>
+            </div>
+            <Button variant="primary" size="md" onClick={handleGenerate} className="mt-2">
+              <Zap className="w-4 h-4 fill-white" />
+              Genereer nu
+            </Button>
+          </div>
         )}
       </AnimatePresence>
 
-      {/* Batch Preview Overlay */}
+      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center gap-2">
+        <div className="flex bg-surface/50 backdrop-blur-md border border-border/50 rounded-full p-1 shadow-sm">
+          <button 
+            onClick={handleGenerate}
+            disabled={isGenerating || (!product.file && !settings.baseProductId)}
+            className="h-7 px-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-text-secondary hover:text-accent disabled:opacity-50 transition-colors"
+          >
+            <Sparkles className="w-3 h-3" />
+            Variatie
+          </button>
+          <div className="w-[1px] bg-border/50 mx-1" />
+          <button 
+            onClick={() => copy(prompt, 'main')}
+            className="h-7 px-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-text-secondary hover:text-text-primary transition-colors"
+          >
+            {copied === 'main' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            Copy
+          </button>
+        </div>
+      </div>
+
+      {/* Overlay Modal */}
       <AnimatePresence>
-        {previewAllImg && (
+        {isPreviewOpen && generatedImg && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[#1A1A1A]/95 p-4 sm:p-10 backdrop-blur-sm"
-            onClick={() => setPreviewAllImg(null)}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/95 p-4 backdrop-blur-sm"
+            onClick={() => setIsPreviewOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative max-w-full max-h-full flex items-center justify-center"
+              initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="relative max-w-full max-h-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => setPreviewAllImg(null)}
-                className="absolute -top-12 sm:-top-16 right-0 text-white/60 hover:text-white transition-colors p-2"
+              <button 
+                onClick={() => setIsPreviewOpen(false)}
+                className="absolute -top-12 right-0 text-white hover:text-accent p-2"
               >
-                <X className="w-8 h-8" />
+                <X className="w-6 h-6" />
               </button>
-
-              <div className="absolute -top-12 sm:-top-16 left-0 flex items-center gap-4">
-                <button
-                  onClick={() => downloadImage(previewAllImg.url, previewAllImg.name)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-bold transition-all backdrop-blur-md border border-white/10"
-                >
+              <img src={generatedImg.url} className="max-w-full max-h-[85vh] rounded-lg shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+              <div className="mt-4 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-white">{settings.designName || 'Branding Design'}</p>
+                  <Badge variant="outline" className="text-white/50 border-white/20">{settings.resolution} • {format.name}</Badge>
+                </div>
+                <Button variant="primary" onClick={() => downloadImage()}>
                   <Download className="w-4 h-4" />
-                  Download {previewAllImg.name}
-                </button>
-              </div>
-
-              <img
-                src={previewAllImg.url}
-                alt={previewAllImg.name}
-                className="max-w-full max-h-[80vh] sm:max-h-[85vh] object-contain rounded-lg shadow-2xl"
-                referrerPolicy="no-referrer"
-              />
-              
-              <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center w-full">
-                <p className="text-white/40 text-[10px] uppercase tracking-widest font-bold">
-                  {previewAllImg.name} • {settings.designName || 'BLL-DESIGN'}
-                </p>
-                <p className="text-white/20 text-[8px] mt-2">
-                  Druk op ESC om te sluiten
-                </p>
+                  Download PNG
+                </Button>
               </div>
             </motion.div>
           </motion.div>

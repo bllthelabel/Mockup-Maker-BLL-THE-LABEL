@@ -1,17 +1,109 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
+@import "@fontsource/geist-sans/index.css";
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/geist-sans/700.css";
+@import "@fontsource/geist-mono/index.css";
+
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Lora", ui-serif, Georgia, serif;
+  --font-sans: "Geist", -apple-system, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Basic Colors */
+  --color-background: #F7F7F8;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #FAFAFA;
+  --color-border: #E4E4E7;
+  --color-border-strong: #D1D1D6;
+  --color-text-primary: #09090B;
+  --color-text-secondary: #52525B;
+  --color-text-tertiary: #A1A1AA;
+  
+  /* Brand Accent */
+  --color-accent: #D32416;
+  --color-accent-hover: #B91C0E;
+  --color-accent-muted: #FEF2F1;
+  --color-accent-border: #FECACA;
+  
+  /* Semantic */
+  --color-success: #16A34A;
+  --color-warning: #CA8A04;
+
+  /* Zinc Palette Override */
+  --color-zinc-50: #FAFAFA;
+  --color-zinc-100: #F4F4F5;
+  --color-zinc-200: #E4E4E7;
+  --color-zinc-300: #D4D4D8;
+  --color-zinc-400: #A1A1AA;
+  --color-zinc-500: #71717A;
+  --color-zinc-600: #52525B;
+  --color-zinc-700: #3F3F46;
+  --color-zinc-800: #27272A;
+  --color-zinc-900: #18181B;
+  --color-zinc-950: #09090B;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.08), 0 4px 6px -2px rgb(0 0 0 / 0.04);
+  --shadow-inset: inset 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-default: 8px; /* Map the 'DEFAULT' in user config to 'default' in T4 mapping or just use custom keys */
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  
+  /* Custom Font Sizes if needed, but T4 defaults are usually fine. User provided specific ones: */
+  --text-2xs: 10px;
+  --text-2xs--line-height: 14px;
+  --text-2xs--letter-spacing: 0.05em;
+  
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  
+  --text-md: 15px;
+  --text-md--line-height: 24px;
+  
+  --text-lg: 16px;
+  --text-lg--line-height: 26px;
+  
+  --text-xl: 18px;
+  --text-xl--line-height: 28px;
+  
+  --text-2xl: 20px;
+  --text-2xl--line-height: 30px;
+  
+  --text-3xl: 24px;
+  --text-3xl--line-height: 34px;
 }
 
-body {
-  background-color: #FDFDFC;
-  color: #1A1A1A;
-  -webkit-font-smoothing: antialiased;
-}
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--color-border);
+  }
 
-h1, h2, h3 {
-  font-family: var(--font-serif);
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'ss02';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
 }

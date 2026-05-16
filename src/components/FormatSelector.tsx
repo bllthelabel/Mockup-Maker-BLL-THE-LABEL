@@ -22,7 +22,7 @@ const IconMap = {
 
 export default function FormatSelector({ selectedId, onSelect }: Props) {
   return (
-    <div className="grid grid-cols-3 xl:grid-cols-4 gap-2" id="format-selector">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2" id="format-selector">
       {PHOTOGRAPHY_FORMATS.map((format) => {
         const IconComponent = (IconMap as any)[format.icon || 'Camera'] || Camera;
         const isSelected = selectedId === format.id;
@@ -31,23 +31,23 @@ export default function FormatSelector({ selectedId, onSelect }: Props) {
             key={format.id}
             onClick={() => onSelect(format.id)}
             className={cn(
-              "text-center p-2 rounded-xl border transition-all relative overflow-hidden group flex flex-col items-center gap-1.5",
+              "text-center p-3 rounded-lg border transition-all relative overflow-hidden group flex flex-col items-center gap-2",
               isSelected 
-                ? "border-[#D32416] bg-[#D32416]/5 ring-1 ring-[#D32416]/20" 
-                : "border-stone-100 bg-white hover:border-stone-200 shadow-xs"
+                ? "border-accent bg-accent-muted ring-2 ring-accent/10" 
+                : "border-border bg-surface hover:border-border-strong shadow-xs"
             )}
           >
             <div className={cn(
-              "p-1.5 rounded-lg transition-colors shrink-0",
-              isSelected ? "bg-[#D32416] text-white" : "bg-stone-50 text-stone-400 group-hover:text-stone-600"
+              "p-2 rounded-md transition-colors shrink-0",
+              isSelected ? "bg-accent text-white" : "bg-zinc-50 text-text-tertiary group-hover:text-text-secondary"
             )}>
-              <IconComponent className="w-3 h-3" />
+              <IconComponent className="w-4 h-4" />
             </div>
             
-            <div className="w-full">
+            <div className="w-full text-center">
               <h4 className={cn(
-                "text-[8px] font-black uppercase tracking-tight transition-colors truncate",
-                isSelected ? "text-[#D32416]" : "text-[#1A1A1A]"
+                "text-[10px] font-bold uppercase tracking-tight transition-colors truncate",
+                isSelected ? "text-accent" : "text-text-primary"
               )}>
                 {format.name}
               </h4>
@@ -58,3 +58,4 @@ export default function FormatSelector({ selectedId, onSelect }: Props) {
     </div>
   );
 }
+

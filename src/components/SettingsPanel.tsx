@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
-import { SlidersHorizontal, Save, ChevronDown, ChevronUp, Search, Info } from 'lucide-react';
+import { SlidersHorizontal, Save, ChevronDown, ChevronUp, Search, Info, Settings2, Sparkles } from 'lucide-react';
 import { PromptSettings, ModelType, Position, Environment, Mood, AspectRatio, Resolution, LibraryProduct, PrintTechnique, AIProvider, ColorOption } from '../types';
 import { COLORS, PRINT_TECHNIQUES } from '../lib/constants';
 import { cn } from '../lib/utils';
+import { Label, Select, Input, Badge, Button, Divider } from './ui';
 
 interface Props {
   settings: PromptSettings;
@@ -12,14 +13,14 @@ interface Props {
   selectedFormatId?: string;
 }
 
-const OptionRow = ({ label, children, className, disabled, info }: { label: string; children: React.ReactNode; className?: string; disabled?: boolean; info?: string }) => (
+const OptionGroup = ({ label, children, className, disabled, info }: { label: string; children: React.ReactNode; className?: string; disabled?: boolean; info?: string }) => (
   <div className={cn("space-y-1.5 transition-opacity", className, disabled && "opacity-50 pointer-events-none")}>
     <div className="flex items-center gap-1.5">
-      <label className="text-[10px] uppercase tracking-wider font-bold text-stone-400">{label}</label>
+      <Label className="mb-0">{label}</Label>
       {info && (
         <div className="group relative">
-          <Info className="w-3 h-3 text-stone-300 cursor-help" />
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-stone-800 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+          <Info className="w-3 h-3 text-text-tertiary cursor-help" />
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-zinc-900 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-md">
             {info}
           </div>
         </div>
@@ -29,35 +30,20 @@ const OptionRow = ({ label, children, className, disabled, info }: { label: stri
   </div>
 );
 
-const Select = ({ value, options, onChange, displayMap, disabled, className }: { value: string; options: string[]; onChange: (v: any) => void; displayMap?: Record<string, string>; disabled?: boolean; className?: string }) => (
-  <select 
-    value={value} 
-    onChange={(e) => onChange(e.target.value)}
-    disabled={disabled}
-    className={cn(
-      "w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#D32416]/50 focus:border-[#D32416] transition-all appearance-none",
-      className,
-      disabled ? "cursor-not-allowed bg-stone-50" : "cursor-pointer"
-    )}
-    style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
-  >
-    {options.map(opt => <option key={opt} value={opt}>{displayMap ? displayMap[opt] || opt : opt}</option>)}
-  </select>
-);
-
 const Section = ({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-stone-100 last:border-0 overflow-hidden">
+    <div className="border border-border rounded-xl bg-surface overflow-hidden shadow-xs">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between py-4 group"
+        className="w-full flex items-center justify-between px-4 py-3 group hover:bg-zinc-50 transition-colors"
       >
-        <h4 className="text-xs font-bold uppercase tracking-widest text-[#1A1A1A] group-hover:text-[#D32416] transition-colors">{title}</h4>
-        {isOpen ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+        <span className="text-xs font-semibold text-text-primary">{title}</span>
+        {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-text-tertiary" /> : <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />}
       </button>
       {isOpen && (
-        <div className="pb-6 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          <Divider className="mb-4" />
           {children}
         </div>
       )}
@@ -119,7 +105,6 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
       setPresets(nextPresets);
       try {
         localStorage.setItem('setting_presets', JSON.stringify(nextPresets));
-        alert(`Preset "${name}" opgeslagen!`);
       } catch (e) {
         console.error('Failed to save preset', e);
       }
@@ -127,103 +112,117 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
   };
 
   return (
-    <div className="space-y-6" id="settings-panel">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="text-[#D32416] w-5 h-5" />
-          <h3 className="font-semibold text-[#1A1A1A]">3. Instellingen</h3>
-        </div>
-        <div className="flex bg-stone-100 p-1 rounded-lg">
+    <div className="space-y-4" id="settings-panel">
+      {/* Top Header & Provider */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5 p-1 bg-zinc-100 rounded-lg">
           {(['google', 'openai'] as const).map((p) => (
             <button
               key={p}
               onClick={() => update('provider', p)}
               className={cn(
-                "px-3 py-1 text-[10px] uppercase tracking-widest font-bold rounded-md transition-all",
+                "px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all",
                 settings.provider === p 
-                  ? "bg-white text-[#D32416] shadow-sm" 
-                  : "text-stone-400 hover:text-stone-600"
+                  ? "bg-surface text-accent shadow-sm" 
+                  : "text-text-tertiary hover:text-text-secondary"
               )}
             >
               {p}
             </button>
           ))}
         </div>
+        <Button variant="ghost" size="sm" onClick={savePreset} className="h-7 px-2">
+          <Save className="w-3 h-3" />
+          Preset
+        </Button>
       </div>
 
-      <div className="bg-white p-3 rounded-2xl border border-stone-100 shadow-sm divide-y divide-stone-50">
+      <div className="space-y-3">
         <Section title="Model & Compositie" defaultOpen>
-          <div className="space-y-3 pt-1">
-            <OptionRow label="Design Naam">
-              <input 
-                type="text"
+          <div className="space-y-4">
+            <OptionGroup label="Product Naam">
+              <Input 
                 value={settings.designName || ''}
                 onChange={(e) => update('designName', e.target.value)}
-                placeholder="Bijv. Classic Logo"
-                className="w-full bg-stone-50/50 border border-stone-200 rounded-lg px-2 py-1.5 text-[11px] text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#D32416]/50 focus:border-[#D32416] transition-all"
+                placeholder="Bijv. Essential Hoodie"
+                className="h-8 text-xs"
               />
-            </OptionRow>
+            </OptionGroup>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <OptionRow label="Model" disabled={isNoModelFormat}>
+            <div className="grid grid-cols-2 gap-3">
+              <OptionGroup label="Model" disabled={isNoModelFormat}>
                 <Select 
                   value={effectiveModelType} 
-                  options={['male', 'female', 'androgynous', 'no model']} 
-                  onChange={(v) => update('modelType', v as ModelType)} 
+                  onChange={(e) => update('modelType', e.target.value as ModelType)} 
                   disabled={isNoModelFormat}
-                  className="py-1 text-[10px]"
-                />
-              </OptionRow>
+                  className="h-8 text-xs"
+                >
+                  {['male', 'female', 'androgynous', 'no model'].map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </Select>
+              </OptionGroup>
 
-              <OptionRow label="Positie">
+              <OptionGroup label="Positie">
                 <Select 
                   value={settings.position} 
-                  options={['front', 'back', 'side', 'close-up']} 
-                  onChange={(v) => update('position', v as Position)} 
-                  className="py-1 text-[10px]"
-                />
-              </OptionRow>
+                  onChange={(e) => update('position', e.target.value as Position)} 
+                  className="h-8 text-xs"
+                >
+                  {['front', 'back', 'side', 'close-up'].map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </Select>
+              </OptionGroup>
+            </div>
 
-              <OptionRow label="Omgeving">
+            <div className="grid grid-cols-2 gap-3">
+              <OptionGroup label="Omgeving">
                 <Select 
                   value={settings.environment} 
-                  options={['indoor minimal', 'outdoor golden hour', 'beach / sand tones', 'city calm', 'neutral studio with natural light', 'neutrale fotostudio met passend licht']} 
-                  onChange={(v) => update('environment', v as Environment)} 
-                  className="py-1 text-[10px]"
-                />
-              </OptionRow>
+                  onChange={(e) => update('environment', e.target.value as Environment)} 
+                  className="h-8 text-xs"
+                >
+                  {['indoor minimal', 'outdoor golden hour', 'beach / sand tones', 'city calm', 'neutral studio'].map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </Select>
+              </OptionGroup>
 
-              <OptionRow label="Mood">
+              <OptionGroup label="Mood">
                 <Select 
                   value={settings.mood} 
-                  options={['calm', 'reflective', 'confident', 'soft', 'grounded', 'ontspannen']} 
-                  onChange={(v) => update('mood', v as Mood)} 
-                  className="py-1 text-[10px]"
-                />
-              </OptionRow>
+                  onChange={(e) => update('mood', e.target.value as Mood)} 
+                  className="h-8 text-xs"
+                >
+                  {['calm', 'soft', 'grounded', 'ontspannen'].map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </Select>
+              </OptionGroup>
             </div>
           </div>
         </Section>
 
         <Section title="Kleur & Techniek">
-          <div className="grid grid-cols-1 xl:grid-cols-[200px,1fr] gap-3 pt-2">
+          <div className="space-y-4">
             <div className="space-y-2">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-stone-400" />
-                <input 
-                  type="text"
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-text-tertiary" />
+                <Input 
                   value={colorSearch}
                   onChange={(e) => setColorSearch(e.target.value)}
                   placeholder="Zoek kleur..."
-                  className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-7 pr-2 py-1 text-[9px] text-[#1A1A1A] focus:outline-none focus:border-[#D32416]/30"
+                  className="h-8 pl-8 text-xs bg-surface-raised border-border/50"
                 />
               </div>
-              <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto pr-1">
+              
+              <div className="flex flex-wrap gap-1">
                 <button 
                   onClick={() => setActiveCategory(null)}
                   className={cn(
-                    "px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all border",
-                    !activeCategory ? "bg-[#D32416] text-white border-[#D32416]" : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
+                    "px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all border",
+                    !activeCategory ? "bg-accent text-white border-accent" : "bg-surface text-text-tertiary border-border hover:border-border-strong"
                   )}
                 >
                   Alles
@@ -233,98 +232,97 @@ export default function SettingsPanel({ settings, onUpdate, library, selectedFor
                     key={cat}
                     onClick={() => setActiveCategory(cat)}
                     className={cn(
-                      "px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest rounded transition-all border",
-                      activeCategory === cat ? "bg-[#D32416] text-white border-[#D32416]" : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
+                      "px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all border",
+                      activeCategory === cat ? "bg-accent text-white border-accent" : "bg-surface text-text-tertiary border-border hover:border-border-strong"
                     )}
                   >
                     {cat}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-10 gap-1 max-h-[100px] overflow-y-auto p-0.5 scrollbar-thin">
+              <div className="grid grid-cols-8 gap-1 p-2 bg-surface-raised rounded-lg border border-border/50 max-h-[120px] overflow-y-auto scrollbar-thin">
                 {filteredColors.map((color) => (
                   <button
                     key={color.id}
                     onClick={() => update('color', color.name)}
                     className={cn(
-                      "w-full aspect-square rounded-md border transition-all relative group flex items-center justify-center",
+                      "aspect-square rounded-md border transition-all flex items-center justify-center p-0.5",
                       settings.color === color.name 
-                        ? "border-[#D32416] bg-[#D32416]/5 shadow-sm" 
-                        : "border-stone-50 hover:border-stone-200"
+                        ? "border-accent bg-accent-muted shadow-sm" 
+                        : "border-transparent hover:border-border-strong"
                     )}
                     title={color.name}
                   >
                     <div 
-                      className="w-2.5 h-2.5 rounded-full border border-black/5"
+                      className="w-full h-full rounded-[4px] border border-black/5"
                       style={{ backgroundColor: color.hex }}
                     />
                   </button>
                 ))}
               </div>
-              
-              <OptionRow label="Druktechniek">
-                <Select 
-                  value={settings.printTechnique || 'none'} 
-                  options={PRINT_TECHNIQUES.map(t => t.id)} 
-                  onChange={(v) => update('printTechnique', v as PrintTechnique)} 
-                  displayMap={printTechniqueLabels}
-                  className="py-1 text-[10px]"
-                />
-              </OptionRow>
             </div>
+            
+            <OptionGroup label="Druktechniek">
+              <Select 
+                value={settings.printTechnique || 'none'} 
+                onChange={(e) => update('printTechnique', e.target.value as PrintTechnique)} 
+                className="h-8 text-xs"
+              >
+                {PRINT_TECHNIQUES.map(tech => (
+                  <option key={tech.id} value={tech.id}>{tech.name}</option>
+                ))}
+              </Select>
+            </OptionGroup>
           </div>
         </Section>
 
-        <Section title="Resolutie">
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <OptionRow label="Aspect ratio">
+        <Section title="Resolutie & Output">
+          <div className="grid grid-cols-2 gap-3">
+            <OptionGroup label="Aspect Ratio">
               <Select 
                 value={settings.aspectRatio} 
-                options={['3:4', '4:5', '1:1']} 
-                onChange={(v) => update('aspectRatio', v as AspectRatio)} 
-                className="py-1.5 text-[11px]"
-              />
-            </OptionRow>
+                onChange={(e) => update('aspectRatio', e.target.value as AspectRatio)} 
+                className="h-8 text-xs"
+              >
+                {['3:4', '4:5', '1:1'].map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </Select>
+            </OptionGroup>
 
-            <OptionRow label="Resolutie">
+            <OptionGroup label="Resolutie">
               <Select 
                 value={settings.resolution} 
-                options={['HD', '2K', '4K']} 
-                onChange={(v) => update('resolution', v as Resolution)} 
-                className="py-1.5 text-[11px]"
-              />
-            </OptionRow>
+                onChange={(e) => update('resolution', e.target.value as Resolution)} 
+                className="h-8 text-xs"
+              >
+                {['HD', '2K', '4K'].map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </Select>
+            </OptionGroup>
           </div>
         </Section>
       </div>
 
-      <div className="pt-2">
-        <label className="text-[10px] uppercase tracking-wider font-bold text-stone-400">Presets</label>
-        <div className="flex gap-2 mt-1.5">
-          <button
-            onClick={savePreset}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg text-xs font-medium transition-colors"
-          >
-            <Save className="w-3.5 h-3.5" />
-            Vastzetten
-          </button>
-          
-          <Select 
-            value="" 
-            options={['', ...Object.keys(presets)]} 
-            onChange={(name) => {
-              if (name && presets[name]) {
-                onUpdate(presets[name]);
-              }
-            }}
-            displayMap={{ '': 'Laden...' }}
-            className="flex-1"
-          />
+      {presets && Object.keys(presets).length > 0 && (
+        <div className="pt-2">
+          <Label>Opgeslagen Presets</Label>
+          <div className="grid grid-cols-2 gap-2 mt-1.5">
+            {Object.keys(presets).slice(0, 4).map(name => (
+              <button
+                key={name}
+                onClick={() => onUpdate(presets[name])}
+                className="px-2 py-1.5 text-[10px] font-medium bg-surface border border-border rounded-lg text-text-secondary hover:border-border-strong hover:text-text-primary transition-all text-left truncate"
+              >
+                {name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
+
