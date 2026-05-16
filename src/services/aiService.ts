@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { UploadedProduct, PromptSettings, GeneratedImage, LibraryProduct } from "../types";
-import { BASE_PRODUCTS } from "../lib/constants";
+import { NEGATIVE_PROMPT, BASE_PRODUCTS } from "../lib/constants";
 
 export async function generateImage(
   prompt: string,
@@ -37,7 +37,8 @@ async function generateGeminiImage(
   };
 
   const model = "gemini-3.1-flash-image-preview";
-  const contentParts: any[] = [{ text: prompt }];
+  const fullPrompt = `${prompt}\n\nNEGATIVE CONSTRAINTS (MANDATORY):\n${NEGATIVE_PROMPT}`;
+  const contentParts: any[] = [{ text: fullPrompt }];
 
   if (product.file && product.mimeType) {
     const base64Data = await fileToBase64(product.file);
@@ -106,7 +107,8 @@ async function generateOpenAIImage(
   library: LibraryProduct[]
 ): Promise<GeneratedImage> {
   const formData = new FormData();
-  formData.append('prompt', prompt);
+  const fullPrompt = `${prompt}\n\nNEGATIVE CONSTRAINTS (MANDATORY):\n${NEGATIVE_PROMPT}`;
+  formData.append('prompt', fullPrompt);
   formData.append('aspectRatio', settings.aspectRatio);
   
   if (product.file) {
@@ -119,9 +121,22 @@ async function generateOpenAIImage(
       body: formData
     });
 
+    const contentType = response.headers.get('content-type');
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Server Fout (${response.status})`);
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server Fout (${response.status})`);
+      } else {
+        const text = await response.text().catch(() => "Geen details");
+        console.error("Non-JSON error response:", text.substring(0, 500));
+        throw new Error(`Server Fout (${response.status}): De server stuurde een ongeldige response (HTML/Tekst). Controleer of de server correct is opgestart.`);
+      }
+    }
+
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text().catch(() => "Geen details");
+      console.error("Non-JSON success response:", text.substring(0, 500));
+      throw new Error("De server stuurde geen JSON terug. Controleer de server logs.");
     }
 
     const result = await response.json();

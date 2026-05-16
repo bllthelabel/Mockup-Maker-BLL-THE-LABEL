@@ -144,7 +144,10 @@ export default function PromptPreview({ prompt, settings, product, library }: Pr
     setAllFormats(initialBatchState);
 
     const results = await Promise.allSettled(
-      PHOTOGRAPHY_FORMATS.map(async (format) => {
+      PHOTOGRAPHY_FORMATS.map(async (format, index) => {
+        // Staggered delay to improve consistency per format (avoids identical simultaneous requests)
+        if (index > 0) await new Promise(resolve => setTimeout(resolve, index * 600));
+        
         const formatPrompt = generatePrompt(format, settings, library);
         return { formatId: format.id, image: await generateImage(formatPrompt, settings, product, library) };
       })

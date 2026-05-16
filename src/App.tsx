@@ -162,6 +162,7 @@ export default function App() {
                 settings={settings} 
                 onUpdate={setSettings} 
                 library={fullLibrary}
+                selectedFormatId={selectedFormatId}
               />
             </motion.div>
           </div>

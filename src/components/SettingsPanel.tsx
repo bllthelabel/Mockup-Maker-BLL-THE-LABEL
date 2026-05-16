@@ -9,31 +9,41 @@ interface Props {
   settings: PromptSettings;
   onUpdate: (settings: PromptSettings) => void;
   library?: LibraryProduct[];
+  selectedFormatId?: string;
 }
 
-const OptionRow = ({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) => (
-  <div className={cn("space-y-1.5", className)}>
+const OptionRow = ({ label, children, className, disabled }: { label: string; children: React.ReactNode; className?: string; disabled?: boolean }) => (
+  <div className={cn("space-y-1.5 transition-opacity", className, disabled && "opacity-50 pointer-events-none")}>
     <label className="text-[10px] uppercase tracking-wider font-bold text-stone-400">{label}</label>
     {children}
   </div>
 );
 
-const Select = ({ value, options, onChange, displayMap }: { value: string; options: string[]; onChange: (v: any) => void; displayMap?: Record<string, string> }) => (
+const Select = ({ value, options, onChange, displayMap, disabled }: { value: string; options: string[]; onChange: (v: any) => void; displayMap?: Record<string, string>; disabled?: boolean }) => (
   <select 
     value={value} 
     onChange={(e) => onChange(e.target.value)}
-    className="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#D32416]/50 focus:border-[#D32416] transition-all appearance-none cursor-pointer"
+    disabled={disabled}
+    className={cn(
+      "w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-sm text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#D32416]/50 focus:border-[#D32416] transition-all appearance-none",
+      disabled ? "cursor-not-allowed bg-stone-50" : "cursor-pointer"
+    )}
     style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1rem' }}
   >
     {options.map(opt => <option key={opt} value={opt}>{displayMap ? displayMap[opt] || opt : opt}</option>)}
   </select>
 );
 
-export default function SettingsPanel({ settings, onUpdate, library }: Props) {
+export default function SettingsPanel({ settings, onUpdate, library, selectedFormatId }: Props) {
   const selectedProduct = settings.baseProductId ? library?.find(p => p.id === settings.baseProductId) : null;
   const filteredColors = selectedProduct?.availableColors 
     ? COLORS.filter(c => selectedProduct.availableColors?.includes(c.id))
     : COLORS;
+
+  const isNoModelFormat = selectedFormatId ? ['foto_1', 'foto_2', 'foto_7'].includes(selectedFormatId) : false;
+
+  // If it's a no-model format, the modelType is effectively 'no model'
+  const effectiveModelType = isNoModelFormat ? 'no model' : settings.modelType;
 
   const update = <K extends keyof PromptSettings>(key: K, value: PromptSettings[K]) => {
     onUpdate({ ...settings, [key]: value });
@@ -78,11 +88,12 @@ export default function SettingsPanel({ settings, onUpdate, library }: Props) {
         </OptionRow>
 
         <div className="grid grid-cols-2 gap-4">
-          <OptionRow label="Model type">
+          <OptionRow label="Model type" disabled={isNoModelFormat}>
             <Select 
-              value={settings.modelType} 
+              value={effectiveModelType} 
               options={['male', 'female', 'androgynous', 'no model']} 
               onChange={(v) => update('modelType', v as ModelType)} 
+              disabled={isNoModelFormat}
             />
           </OptionRow>
 
@@ -94,19 +105,21 @@ export default function SettingsPanel({ settings, onUpdate, library }: Props) {
             />
           </OptionRow>
 
-          <OptionRow label="Omgeving">
+          <OptionRow label="Omgeving" disabled={true}>
             <Select 
               value={settings.environment} 
-              options={['indoor minimal', 'outdoor golden hour', 'beach / sand tones', 'city calm', 'neutral studio with natural light']} 
-              onChange={(v) => update('environment', v as Environment)} 
+              options={[settings.environment]} 
+              onChange={() => {}} 
+              disabled={true}
             />
           </OptionRow>
 
-          <OptionRow label="Mood">
+          <OptionRow label="Mood" disabled={true}>
             <Select 
               value={settings.mood} 
-              options={['calm', 'reflective', 'confident', 'soft', 'grounded']} 
-              onChange={(v) => update('mood', v as Mood)} 
+              options={[settings.mood]} 
+              onChange={() => {}} 
+              disabled={true}
             />
           </OptionRow>
 

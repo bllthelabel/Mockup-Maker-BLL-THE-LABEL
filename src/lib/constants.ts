@@ -3,34 +3,46 @@ import { PhotographyFormat, PromptSettings, LibraryProduct, ColorOption } from '
 
 export const PHOTOGRAPHY_FORMATS: PhotographyFormat[] = [
   {
-    id: 'moments',
-    name: 'Echte Momenten',
-    description: 'Candid lifestyle fotografie waarbij het product natuurlijk gedragen wordt door een model. Het beeld voelt ongedwongen, echt en menselijk.',
-    basePrompt: 'Capture an honest lifestyle memory. The model is in a candid, unposed moment with a relaxed posture and a cheerful, happy expression with a genuine smile, not looking at the camera. Use warm natural light, preferably golden hour or soft window light, with gentle shadows. Use a 35mm film aesthetic with slight grain and soft contrast. The atmosphere is raw, real, warm, and calm. The environment should be minimal and quiet, providing plenty of negative space.'
+    id: 'foto_1',
+    name: 'Detail shot - Close-up bovengedeelte',
+    description: 'Close-up van het bovenste gedeelte van het product, schuin van bovenaf (~45 graden) gefotografeerd.',
+    basePrompt: 'Create a high-detail close-up shot of the upper portion of the garment. Camera angle: ~45 degrees from above. Framing: 40-50% of the image, ensuring the neckline and the chest artwork from the reference image are clearly visible and centered. The print/artwork must be sharp and perfectly reproduced. Background: Pure white. NO extra labels.'
   },
   {
-    id: 'detail',
-    name: 'Detail & Textuur',
-    description: 'Macro productfotografie gericht op stof, borduursel, print, naden en materiaalgevoel.',
-    basePrompt: 'Create an extreme close-up macro shot focusing on the tactile quality of the garment. Show the fabric texture, stitching, and artwork detail exactly as seen in the reference. Use soft natural side lighting to emphasize the material quality and physical depth. The aesthetic is raw and real, highlighting the craftsmanship.'
+    id: 'foto_2',
+    name: 'Product flat lay - Frontaal',
+    description: 'Volledig product shot in flat-lay stijl, recht van voren gefotografeerd op een wit fond.',
+    basePrompt: 'Create a professional product flat lay photograph. The entire garment is visible, laid flat. The artwork/print from the reference image must be perfectly centered and clearly visible. Camera angle: Directly horizontal (0 degrees). Framing: 70% of image. Background: Pure white. Entirely sharp.'
   },
   {
-    id: 'portraits',
-    name: 'Stille Portretten',
-    description: 'Minimal editorial portret waarin het product duidelijk zichtbaar is. Rustig, clean en tijdloos.',
-    basePrompt: 'A quiet, minimal editorial portrait. The model stands still with a relaxed, grounded posture and a warm, cheerful and vrolijke expression. Set in a minimal location with a neutral color palette (beige, cream, sand). Natural diffused light, calm composition with lots of negative space. The image feels like a warm, honest memory, clean and premium.'
+    id: 'foto_3',
+    name: 'Model portret - Frontaal',
+    description: 'Portret van een model van voren, focus op het bovenlichaam op een wit fond.',
+    basePrompt: 'Model portrait showing the torso clearly. The design from the reference image must be visible on the chest. Camera: Shoulder height. Framing: Upper body. Lighting: Soft studio. Background: Pure white. Neutral expression.'
   },
   {
-    id: 'freestanding',
-    name: 'Vrijstaand Product',
-    description: 'Strakke flat-lay productfotografie op een egale achtergrond. Focus volledig op het kledingstuk zelf.',
-    basePrompt: 'Create a minimal flat lay product photograph. The garment is laid naturally on a soft textured surface (like linen or matte plaster) in warm neutral tones (beige, sand, cream). Allow natural folds and subtle imperfections for a relaxed, real feeling. Top-down (flat lay) composition with plenty of negative space. Soft natural sunlight (window light or golden hour) with gentle side shadows. 35mm film look, slight grain, no props, no studio background.'
+    id: 'foto_4',
+    name: 'Model profiel - Zijkant',
+    description: 'Model gefotografeerd van de zijkant (profiel) op een wit fond.',
+    basePrompt: 'Model profile shot. The side of the garment and a portion of the front design should be visible. Camera: 90 degrees profile. Framing: Upper body. Background: Pure white.'
   },
   {
-    id: 'ghost-mannequin',
-    name: 'Ghost Mannequin',
-    description: 'Onzichtbare paspop fotografie waarbij het kledingstuk zijn 3D-vorm behoudt zonder zichtbaar model of mannequin. Professionele productpresentatie met focus op pasvorm en silhouet.',
-    basePrompt: 'Create a ghost mannequin (invisible mannequin / hollow man) product photograph. The garment is worn on an invisible mannequin, retaining its full 3D shape, structure, and silhouette — as if worn by a person, but with no visible body, model, or mannequin. The inside collar, neckline, and sleeve openings should be slightly visible to emphasize the hollow effect. Place the garment centered on a clean, neutral background (white, off-white, or very light grey). Lighting is soft, even, and diffused — no harsh shadows, no gradients. The overall look is clean, premium, and e-commerce ready. Focus entirely on the fit, construction, and shape of the garment.'
+    id: 'foto_5',
+    name: 'Model full-body - Driekwart',
+    description: 'Volledig lichaamsportret in een driekwart positie op een wit fond.',
+    basePrompt: 'Full-body model photo in 45-degree position. The chest design must remain visible. Framing: Head to toe. Lighting: Even studio. Background: Pure white.'
+  },
+  {
+    id: 'foto_6',
+    name: 'Model portret - Frontaal Close',
+    description: 'Close-up portret van een model met direct oogcontact op een wit fond.',
+    basePrompt: 'Close-up model portrait. The framing must include enough of the chest to show the original design/artwork clearly. Direct eye contact. Lighting: Symmetrical studio. Background: Pure white.'
+  },
+  {
+    id: 'foto_7',
+    name: 'Ghost mannequin - Frontaal',
+    description: 'Product gepresenteerd op een onzichtbare paspop om pasvorm en vorm te tonen op een wit fond.',
+    basePrompt: 'Professional ghost mannequin shot. The garment maintains its 3D shape. The artwork from the reference image must be perfectly positioned on the chest. Framing: Shoulders to waist. Hollow neck effect. Background: Pure white.'
   }
 ];
 
@@ -154,8 +166,8 @@ export const PRINT_TECHNIQUES = [
 export const DEFAULT_SETTINGS: PromptSettings = {
   modelType: 'female',
   position: 'front',
-  environment: 'indoor minimal',
-  mood: 'calm',
+  environment: 'neutrale fotostudio met passend licht',
+  mood: 'ontspannen',
   aspectRatio: '4:5',
   resolution: 'HD',
   color: 'white',
@@ -163,7 +175,7 @@ export const DEFAULT_SETTINGS: PromptSettings = {
   provider: 'google'
 };
 
-export const NEGATIVE_PROMPT = 'Do not change the product design. Do not change the logo. Do not change the print. Do not change the embroidery. Do not add extra text or labels. Do not add random graphics. No creative hallucinations. No deviations from reference images. Do not make the image look like a glossy commercial ad. No harsh studio lighting. No flash or artificial studio lighting. No forced posing. No busy background. No distorted hands. No deformed clothing. No incorrect text. No fake logos. No bright or saturated colors. No HDR or over-processed look.';
+export const NEGATIVE_PROMPT = 'extra neck labels, invented brand labels, random prints, graphics not in original product, logos not in original product, text, blurry, distorted, low quality, multiple people, extra limbs, cluttered background, distracting props, watermarks, signature.';
 
 export const BASE_PRODUCTS: LibraryProduct[] = [
   {

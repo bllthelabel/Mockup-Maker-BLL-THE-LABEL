@@ -1,8 +1,8 @@
 
 export type ModelType = 'male' | 'female' | 'androgynous' | 'no model';
 export type Position = 'front' | 'back' | 'side' | 'close-up';
-export type Environment = 'indoor minimal' | 'outdoor golden hour' | 'beach / sand tones' | 'city calm' | 'neutral studio with natural light';
-export type Mood = 'calm' | 'reflective' | 'confident' | 'soft' | 'grounded';
+export type Environment = 'indoor minimal' | 'outdoor golden hour' | 'beach / sand tones' | 'city calm' | 'neutral studio with natural light' | 'neutrale fotostudio met passend licht';
+export type Mood = 'calm' | 'reflective' | 'confident' | 'soft' | 'grounded' | 'ontspannen';
 export type AspectRatio = '3:4' | '4:5' | '1:1';
 export type Resolution = 'HD' | '2K' | '4K';
 export type AIProvider = 'google' | 'openai';
