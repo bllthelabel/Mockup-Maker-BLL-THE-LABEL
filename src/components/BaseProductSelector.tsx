@@ -13,7 +13,7 @@ export default function BaseProductSelector({ items, selectedId, onSelect }: Pro
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
+    <div className="grid grid-cols-2 gap-3">
       {items.map((item) => {
         const isSelected = selectedId === item.id;
         const hasError = imgErrors[item.id];

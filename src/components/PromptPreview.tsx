@@ -15,6 +15,7 @@ interface Props {
   product: UploadedProduct;
   library: LibraryProduct[];
   format: PhotographyFormat;
+  onImageGenerated?: (hasImage: boolean) => void;
 }
 
 interface FormatStatus {
@@ -23,7 +24,7 @@ interface FormatStatus {
   isLoading: boolean;
 }
 
-export default function PromptPreview({ prompt, settings, product, library, format }: Props) {
+export default function PromptPreview({ prompt, settings, product, library, format, onImageGenerated }: Props) {
   const [copied, setCopied] = useState<'main' | 'negative' | 'full' | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImg, setGeneratedImg] = useState<GeneratedImage | null>(null);
@@ -106,6 +107,7 @@ export default function PromptPreview({ prompt, settings, product, library, form
     try {
       const result = await generateImage(prompt, settings, product, library, format);
       setGeneratedImg(result);
+      onImageGenerated?.(true);
       saveToHistory(result, settings, format.name);
     } catch (err: any) {
       setError(parseError(err, settings.provider));

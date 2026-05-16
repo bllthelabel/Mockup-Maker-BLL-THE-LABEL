@@ -18,6 +18,7 @@ export default function App() {
   const [selectedFormatId, setSelectedFormatId] = useState(PHOTOGRAPHY_FORMATS[0].id);
   const [settings, setSettings] = useState<PromptSettings>(DEFAULT_SETTINGS);
   const [userLibrary, setUserLibrary] = useState<LibraryProduct[]>([]);
+  const [hasGeneratedImage, setHasGeneratedImage] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('bll_user_library');
@@ -138,22 +139,22 @@ export default function App() {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] gap-10 items-start">
           
           {/* LEFT COLUMN: MAIN WORKFLOW */}
-          <div className="space-y-6">
+          <div className="space-y-10">
             
             {/* Steps 1 & 2: Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <Card className="h-full">
-                <CardHeader className="p-4 pb-0">
+                <CardHeader className="p-5 pb-0">
                   <SectionHeader 
                     step={1} 
                     title="Ontwerp" 
                     description="Upload jouw logo of kledingstuk"
                   />
                 </CardHeader>
-                <CardContent className="p-4 pt-1">
+                <CardContent className="p-5 pt-2">
                   <ProductUploader
                     product={product}
                     onUpload={setProduct}
@@ -167,14 +168,14 @@ export default function App() {
               </Card>
 
               <Card className="h-full">
-                <CardHeader className="p-4 pb-0">
+                <CardHeader className="p-5 pb-0">
                   <SectionHeader 
                     step={2} 
                     title="Basis Product" 
                     description="Kies de juiste fit voor je visualisatie"
                   />
                 </CardHeader>
-                <CardContent className="p-4 pt-1">
+                <CardContent className="p-5 pt-2">
                   <BaseProductSelector
                     items={bllProducts}
                     selectedId={settings.baseProductId}
@@ -186,20 +187,20 @@ export default function App() {
 
             {/* Step 3: Format */}
             <Card>
-              <CardHeader className="p-4 pb-0">
+              <CardHeader className="p-5 pb-0">
                 <SectionHeader 
                   step={3} 
                   title="Format & Compositie" 
                   description="Kies de professionele setting van de foto"
                 />
               </CardHeader>
-              <CardContent className="p-4 pt-1">
+              <CardContent className="p-5 pt-2">
                  <FormatSelector selectedId={selectedFormatId} onSelect={setSelectedFormatId} />
               </CardContent>
             </Card>
 
             {/* Step 4: AI Prompt */}
-            <div className="space-y-2">
+            <div className="space-y-4">
                <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <Wand2 className="text-accent w-3.5 h-3.5" />
@@ -216,9 +217,9 @@ export default function App() {
           </div>
 
           {/* RIGHT COLUMN: PREVIEW & SETTINGS (Sticky) */}
-          <div className="lg:sticky lg:top-[74px] space-y-6">
+          <div className="lg:sticky lg:top-[74px] space-y-8">
             <Card className="overflow-hidden border-accent/20 shadow-lg shadow-accent/5">
-              <CardHeader className="py-2.5 px-4 bg-zinc-50 border-b border-border flex flex-row items-center justify-between">
+              <CardHeader className="py-3 px-5 bg-zinc-50 border-b border-border flex flex-row items-center justify-between">
                  <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                     <span className="text-[11px] font-bold uppercase tracking-wider text-text-primary">Preview Studio</span>
@@ -229,24 +230,28 @@ export default function App() {
                     </div>
                  )}
               </CardHeader>
-              <div className="bg-zinc-100 aspect-[4/5] relative border-b border-border flex items-center justify-center overflow-hidden">
+              <div className={cn(
+                "bg-zinc-100 relative border-b border-border flex items-center justify-center overflow-hidden transition-all duration-500",
+                hasGeneratedImage ? "aspect-[4/5]" : "aspect-video min-h-[160px]"
+              )}>
                  <PromptPreview
                     prompt={prompt}
                     settings={settings}
                     product={product}
                     library={fullLibrary}
                     format={selectedFormat}
+                    onImageGenerated={setHasGeneratedImage}
                   />
               </div>
-              <CardContent className="p-4 space-y-2 bg-surface">
-                 <div className="flex gap-1.5">
+              <CardContent className="p-5 space-y-3 bg-surface">
+                 <div className="flex gap-2">
                     <Badge variant="outline" className="capitalize text-[9px]">{settings.modelType}</Badge>
                     <Badge variant="outline" className="text-[9px]">{settings.resolution}</Badge>
                  </div>
               </CardContent>
             </Card>
 
-            <div className="space-y-3 px-1">
+            <div className="space-y-4 px-1">
                <div className="flex items-center gap-2 text-text-secondary">
                   <Sliders className="w-3.5 h-3.5" />
                   <h3 className="text-[11px] font-bold uppercase tracking-wider">Instellingen</h3>

@@ -178,7 +178,7 @@ export const DEFAULT_SETTINGS: PromptSettings = {
   aspectRatio: '4:5',
   resolution: 'HD',
   color: 'white',
-  printTechnique: 'none',
+  printTechnique: 'dtg',
   provider: 'google'
 };
 
